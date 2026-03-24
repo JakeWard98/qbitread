@@ -1,2 +1,2 @@
 # qbitread
-Webpage that only shows what qbit has
+Webpage that only shows what qbit has running
