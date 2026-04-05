@@ -9,6 +9,7 @@ A lightweight Docker web app that monitors your qBittorrent instance. Dark, mini
 - Sortable columns, search
 - User authentication with admin role
 - Admin panel to create/delete users
+- First-run setup wizard (no config file editing required)
 - Security: CSRF protection, rate-limited login, security headers, HTTP-only JWT cookies
 - qBittorrent credentials never exposed to the browser
 
@@ -17,13 +18,18 @@ A lightweight Docker web app that monitors your qBittorrent instance. Dark, mini
 ```bash
 # Clone and configure
 cp .env.example .env
-# Edit .env with your qBittorrent details and a random SECRET_KEY
+# Edit .env with your qBittorrent details
+
+# (Recommended) Set admin credentials in .env:
+#   ADMIN_USERNAME=admin
+#   ADMIN_PASSWORD=your-password
+#
+# Or skip them — a setup wizard will guide you on first visit.
 
 # Build and run
 docker compose up -d
 
-# Open http://localhost:8000
-# Login with the ADMIN_USERNAME / ADMIN_PASSWORD from your .env
+# Open http://localhost:8112
 ```
 
 ## Environment Variables
@@ -33,10 +39,10 @@ docker compose up -d
 | `QBIT_HOST` | No | `http://localhost:8080` | qBittorrent Web UI URL |
 | `QBIT_USERNAME` | No | `admin` | qBittorrent username |
 | `QBIT_PASSWORD` | Yes | — | qBittorrent password |
-| `SECRET_KEY` | Yes | — | Random string for JWT signing (generate with `python -c "import secrets; print(secrets.token_hex(32))"`) |
-| `ADMIN_USERNAME` | No | `admin` | Bootstrap admin username |
-| `ADMIN_PASSWORD` | Yes | — | Bootstrap admin password |
-| `SECURE_COOKIES` | No | `true` | Set to `false` for local dev without HTTPS |
+| `SECRET_KEY` | No | auto-generated | Random string for JWT signing. Auto-generated and persisted to the data volume if not set. |
+| `ADMIN_USERNAME` | No | `admin` | **Recommended.** Bootstrap admin username. |
+| `ADMIN_PASSWORD` | No | — | **Recommended.** Bootstrap admin password. If omitted, a setup wizard is shown on first run. |
+| `SECURE_COOKIES` | No | `false` | Set to `true` if behind an HTTPS reverse proxy |
 
 ## Production: HTTPS with Reverse Proxy
 
@@ -70,21 +76,25 @@ server {
 }
 ```
 
+When using HTTPS, set `SECURE_COOKIES=true` in your environment.
+
 ## Security
 
-- JWT tokens stored in HTTP-only, Secure, SameSite=Strict cookies
+- JWT tokens stored in HTTP-only, SameSite=Strict cookies (Secure flag when `SECURE_COOKIES=true`)
 - CSRF double-submit cookie protection on all mutating API requests
 - Login rate limiting (5 attempts/min per IP)
 - Security headers: CSP, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy
 - qBittorrent credentials stay server-side only
 - Container runs as non-root user
 - SQLite database persisted in Docker volume
+- SECRET_KEY auto-generated and persisted if not provided
 
 ## Development
 
 ```bash
 # Without Docker
 pip install -r requirements.txt
-export SECRET_KEY=dev-secret ADMIN_PASSWORD=admin SECURE_COOKIES=false
+export QBIT_PASSWORD=changeme ADMIN_PASSWORD=admin SECURE_COOKIES=false
 uvicorn app.main:app --reload --port 8000
+# SECRET_KEY is auto-generated if not set
 ```

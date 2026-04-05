@@ -18,10 +18,12 @@ services:
       - QBIT_HOST=http://localhost:8080
       - QBIT_USERNAME=admin
       - QBIT_PASSWORD=changeme
-      - SECRET_KEY=change-me-to-a-random-64-char-string
+      # SECRET_KEY is auto-generated if omitted
+      # - SECRET_KEY=change-me-to-a-random-64-char-string
+      # Admin credentials (recommended). If omitted, a setup wizard runs on first visit.
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=changeme
-      - SECURE_COOKIES=true
+      - SECURE_COOKIES=false
     volumes:
       - qbitread_data:/app/data
 

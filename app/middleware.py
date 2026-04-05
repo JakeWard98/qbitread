@@ -66,7 +66,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     """Double-submit cookie CSRF protection for mutating requests."""
 
     SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-    EXEMPT_PATHS = {"/api/auth/login", "/api/auth/logout"}
+    EXEMPT_PATHS = {"/api/auth/login", "/api/auth/logout", "/api/auth/setup"}
 
     async def dispatch(self, request: Request, call_next):
         if request.method in self.SAFE_METHODS:

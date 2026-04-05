@@ -1,4 +1,11 @@
+import logging
+import os
+import secrets
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -8,24 +15,57 @@ class Settings(BaseSettings):
     QBIT_PASSWORD: str
 
     # App security
-    SECRET_KEY: str
+    SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_MINUTES: int = 720  # 12 hours
 
     # Database
     DATABASE_PATH: str = "/app/data/qbitread.db"
 
-    # Admin bootstrap
+    # Admin bootstrap (optional — setup wizard used if omitted)
     ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str
+    ADMIN_PASSWORD: str = ""
 
     # Rate limiting
     LOGIN_RATE_LIMIT: int = 5  # attempts per minute
 
     # Cookie security (disable Secure flag for local dev without HTTPS)
-    SECURE_COOKIES: bool = True
+    SECURE_COOKIES: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @model_validator(mode="after")
+    def _ensure_secret_key(self) -> "Settings":
+        if self.SECRET_KEY:
+            return self
+
+        data_dir = os.path.dirname(self.DATABASE_PATH)
+        key_file = os.path.join(data_dir, ".secret_key")
+
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+
+            if os.path.exists(key_file):
+                self.SECRET_KEY = open(key_file).read().strip()
+                if self.SECRET_KEY:
+                    logger.info("SECRET_KEY loaded from %s", key_file)
+                    return self
+
+            self.SECRET_KEY = secrets.token_hex(32)
+            with open(key_file, "w") as f:
+                f.write(self.SECRET_KEY)
+            os.chmod(key_file, 0o600)
+            logger.info("SECRET_KEY auto-generated and saved to %s", key_file)
+        except OSError as exc:
+            # Fall back to an ephemeral key (lost on restart)
+            self.SECRET_KEY = secrets.token_hex(32)
+            logger.warning(
+                "Could not persist SECRET_KEY to %s (%s); using ephemeral key",
+                key_file,
+                exc,
+            )
+
+        return self
 
 
 settings = Settings()
