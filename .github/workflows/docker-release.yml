@@ -50,11 +50,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # ── 5. Extract Docker metadata ─────────────────────────────────────────
-      # Given a release tag of v1.2.3 (or v0.0.1), this generates:
-      #   ghcr.io/jakeward98/qbitread:1.2.3  (or 0.0.1)
-      #   ghcr.io/jakeward98/qbitread:1.2    (or 0.0)
-      #   ghcr.io/jakeward98/qbitread:1      (or 0)
+      # Given a stable release tag of v1.2.3, this generates:
+      #   ghcr.io/jakeward98/qbitread:1.2.3
+      #   ghcr.io/jakeward98/qbitread:1.2
+      #   ghcr.io/jakeward98/qbitread:1
       #   ghcr.io/jakeward98/qbitread:latest
+      # Given a pre-release tag of v1.2.3-beta.1, this generates:
+      #   ghcr.io/jakeward98/qbitread:1.2.3-beta.1
+      #   ghcr.io/jakeward98/qbitread:beta
+      #   (latest is NOT updated for pre-releases)
       # OCI-standard labels (org.opencontainers.image.*) are also attached.
       - name: Extract Docker metadata
         id: meta
@@ -62,11 +66,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
-            latest=true
+            latest=auto
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+            type=raw,value=beta,enable=${{ github.event.release.prerelease }}
 
       # ── 6. Build and push ──────────────────────────────────────────────────
       # Registry cache (type=registry, mode=max) is used instead of type=gha
