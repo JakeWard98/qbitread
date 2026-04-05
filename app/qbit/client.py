@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 
@@ -17,8 +18,15 @@ class QBitClient:
         self._last_login_failure = 0.0
         self._MAX_COOLDOWN = 300
         self._BAN_COOLDOWN = 900  # 15 minutes for IP ban
+        self._login_lock = asyncio.Lock()
 
     async def _login(self):
+        async with self._login_lock:
+            if self._authenticated:
+                return  # Another coroutine already logged in while we waited
+            await self._do_login()
+
+    async def _do_login(self):
         # Circuit breaker: skip login if in cooldown
         now = time.monotonic()
         elapsed = now - self._last_login_failure
@@ -78,8 +86,13 @@ class QBitClient:
 
         resp = await self._client.get(path, params=params)
 
-        # Re-auth on 403 (session expired)
+        # Handle 403: distinguish IP ban from session expiry
         if resp.status_code == 403:
+            if "banned" in resp.text.lower():
+                self._record_login_failure(ban=True)
+                raise ConnectionError(
+                    "IP banned by qBittorrent. Pausing login attempts for 15 minutes."
+                )
             self._authenticated = False
             await self._login()
             resp = await self._client.get(path, params=params)
