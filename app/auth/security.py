@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+import jwt
 from passlib.hash import bcrypt
 
 from app.config import settings
@@ -28,7 +28,7 @@ def create_jwt(username: str, is_admin: bool) -> str:
 def verify_jwt(token: str) -> dict | None:
     try:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-    except JWTError:
+    except jwt.PyJWTError:
         return None
 
 
