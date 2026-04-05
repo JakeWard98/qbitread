@@ -12,8 +12,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  # github.repository is "JakeWard98/qbitread" — GHCR normalises to lowercase automatically.
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
@@ -21,7 +19,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout ────────────────────────────────────────────────────────
+      # ── 1. Lowercase image name ────────────────────────────────────────────
+      # github.repository preserves the owner's original casing (e.g.
+      # "JakeWard98/qbitread"). Docker registry refs must be fully lowercase,
+      # so we convert once here and use IMAGE_NAME for all subsequent steps.
+      - name: Set lowercase image name
+        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+      # ── 2. Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
