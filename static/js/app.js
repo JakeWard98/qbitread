@@ -66,6 +66,9 @@
   let countdown = 0;
   let countdownTimer = null;
   const INTERVAL = 5;
+  const MAX_INTERVAL = 60;
+  let currentInterval = INTERVAL;
+  let consecutiveErrors = 0;
 
   /* ── Auth check ── */
   async function checkAuth() {
@@ -109,12 +112,22 @@
       ]);
 
       if (torrentsResp.status === 401 || transferResp.status === 401) {
+        console.warn('Session expired (401), redirecting to login');
         window.location.href = '/login';
         return;
       }
 
       if (!torrentsResp.ok || !transferResp.ok) {
-        throw new Error('Failed to fetch data');
+        const errorResp = !torrentsResp.ok ? torrentsResp : transferResp;
+        let detail = 'Failed to fetch data';
+        if (errorResp.status === 502) {
+          try {
+            const body = await errorResp.json();
+            detail = body.detail || detail;
+          } catch {}
+        }
+        console.error('API error:', errorResp.status, detail);
+        throw new Error(detail);
       }
 
       torrents = await torrentsResp.json();
@@ -123,9 +136,36 @@
       updateStats(transfer);
       setConnected(true);
       showError('');
+
+      // Reset backoff on success
+      if (consecutiveErrors > 0) {
+        console.info('Connection restored, polling reset to ' + INTERVAL + 's');
+        consecutiveErrors = 0;
+        if (currentInterval !== INTERVAL) {
+          currentInterval = INTERVAL;
+          startRefreshLoop();
+        }
+      }
     } catch (e) {
-      showError('Cannot reach qBittorrent: ' + e.message);
+      consecutiveErrors++;
+      const isBan = e.message && e.message.toLowerCase().includes('banned');
+
+      if (isBan) {
+        console.error('IP banned by qBittorrent \u2014 retries paused for 15 minutes');
+        showError('IP banned by qBittorrent. Login attempts paused for 15 minutes. Will auto-retry.');
+        currentInterval = MAX_INTERVAL;
+      } else {
+        console.error('fetchData failed:', e.message);
+        showError('Cannot reach qBittorrent: ' + e.message);
+        const newInterval = Math.min(INTERVAL * Math.pow(2, consecutiveErrors), MAX_INTERVAL);
+        if (newInterval !== currentInterval) {
+          console.warn('Polling slowed to ' + newInterval + 's after ' + consecutiveErrors + ' consecutive errors');
+          currentInterval = newInterval;
+        }
+      }
+
       setConnected(false);
+      startRefreshLoop();
     } finally {
       setSpinning(false);
     }
@@ -240,16 +280,16 @@
   function startRefreshLoop() {
     clearInterval(refreshTimer);
     clearInterval(countdownTimer);
-    countdown = INTERVAL;
+    countdown = currentInterval;
     countdownTimer = setInterval(() => {
       countdown--;
       $('refresh-info').textContent = 'Refresh in ' + countdown + 's';
-      if (countdown <= 0) countdown = INTERVAL;
+      if (countdown <= 0) countdown = currentInterval;
     }, 1000);
     refreshTimer = setInterval(() => {
       fetchData();
-      countdown = INTERVAL;
-    }, INTERVAL * 1000);
+      countdown = currentInterval;
+    }, currentInterval * 1000);
   }
 
   function doRefresh() {
