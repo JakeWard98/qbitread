@@ -28,11 +28,16 @@ pushes the following tags to `ghcr.io/jakeward98/qbitread`:
 | `1.2.3`       | Exact version — immutable, safe to pin     |
 | `1.2`         | Latest patch for this minor version        |
 | `1`           | Latest minor+patch for this major version  |
-| `latest`      | Most recently published release            |
+| `latest`      | Most recently published stable release     |
+| `beta`        | Most recently published pre-release        |
 | `buildcache`  | Internal layer cache — do not use directly |
 
 The same rules apply to pre-v1 versions. For `v0.0.1` the tags are
 `0.0.1`, `0.0`, `0`, and `latest`.
+
+Pre-releases (e.g. `v1.0.0-beta.1`) produce only the exact version tag
+and the `beta` tag — they do **not** update `latest`, `major.minor`, or
+`major`.
 
 ## How to cut a release
 
@@ -46,12 +51,17 @@ The same rules apply to pre-v1 versions. For `v0.0.1` the tags are
 
 ## Pre-release handling
 
-Currently all published releases (including pre-release tags like
-`v1.0.0-beta.1`) will update the `latest` tag. If you want pre-releases
-to not move `latest`, change `latest=true` to `latest=auto` in the
-`flavor` block of `.github/workflows/docker-release.yml`. With
-`latest=auto`, any tag containing a hyphen is treated as a pre-release
-and will not update `latest`.
+Pre-releases (any tag containing a hyphen, e.g. `v1.0.0-beta.1`) are
+handled differently from stable releases:
+
+- They do **not** update the `latest` tag (`latest=auto` in the workflow).
+- They receive the rolling `beta` tag, so `ghcr.io/jakeward98/qbitread:beta`
+  always points to the most recent pre-release.
+- Semver `major.minor` and `major` floating tags are not generated for
+  pre-releases.
+
+To publish a pre-release, check the **Set as a pre-release** checkbox on
+the GitHub release form.
 
 ## Pulling the image
 

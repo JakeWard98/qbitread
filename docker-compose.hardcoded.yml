@@ -9,7 +9,7 @@
 
 services:
   qbitread:
-    build: .
+    image: ghcr.io/jakeward98/qbitread:latest
     container_name: qbitread
     restart: unless-stopped
     ports:
