@@ -9,10 +9,10 @@ services:
       - QBIT_HOST=${QBIT_HOST:-http://localhost:8080}
       - QBIT_USERNAME=${QBIT_USERNAME:-admin}
       - QBIT_PASSWORD=${QBIT_PASSWORD:?Set QBIT_PASSWORD in .env}
-      - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
+      - SECRET_KEY=${SECRET_KEY:-}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
-      - SECURE_COOKIES=${SECURE_COOKIES:-true}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - SECURE_COOKIES=${SECURE_COOKIES:-false}
     volumes:
       - qbitread_data:/app/data
 

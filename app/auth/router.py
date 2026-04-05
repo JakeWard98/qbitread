@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_admin
@@ -45,6 +46,28 @@ async def login(
         max_age=settings.JWT_EXPIRY_MINUTES * 60,
     )
     return {"message": "OK", "is_admin": user.is_admin, "username": user.username}
+
+
+@router.post("/setup", status_code=201)
+async def initial_setup(
+    body: UserCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).limit(1))
+    if result.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=403, detail="Setup already completed")
+
+    user = User(
+        username=body.username,
+        password=hash_password(body.password),
+        is_admin=True,
+    )
+    db.add(user)
+    try:
+        await db.commit()
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Setup already completed")
+    return {"message": "Admin account created. Please log in."}
 
 
 @router.post("/logout")

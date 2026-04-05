@@ -36,6 +36,10 @@ async def lifespan(app: FastAPI):
 
 
 async def bootstrap_admin():
+    if not settings.ADMIN_PASSWORD:
+        logger.info("No ADMIN_PASSWORD set — setup wizard will be available on first visit")
+        return
+
     async with async_session() as db:
         result = await db.execute(
             select(User).where(User.username == settings.ADMIN_USERNAME)
@@ -54,6 +58,12 @@ async def bootstrap_admin():
             logger.info("Admin user '%s' already exists", settings.ADMIN_USERNAME)
 
 
+async def _has_users() -> bool:
+    async with async_session() as db:
+        result = await db.execute(select(User).limit(1))
+        return result.scalar_one_or_none() is not None
+
+
 app = FastAPI(title="qBitRead", docs_url=None, redoc_url=None, lifespan=lifespan)
 
 # Middleware (applied in reverse order)
@@ -70,8 +80,17 @@ app.include_router(qbit_router)
 
 
 # Page routes
+@app.get("/setup")
+async def setup_page():
+    if await _has_users():
+        return RedirectResponse("/login")
+    return FileResponse("templates/setup.html")
+
+
 @app.get("/login")
 async def login_page():
+    if not await _has_users():
+        return RedirectResponse("/setup")
     return FileResponse("templates/login.html")
 
 
@@ -88,6 +107,8 @@ async def admin_page(request: Request):
 
 @app.get("/")
 async def index_page(request: Request):
+    if not await _has_users():
+        return RedirectResponse("/setup")
     token = request.cookies.get("access_token")
     if not token:
         return RedirectResponse("/login")
