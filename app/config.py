@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     # qBittorrent connection
     QBIT_HOST: str = "http://localhost:8080"
     QBIT_USERNAME: str = "admin"
-    QBIT_PASSWORD: str = "adminadmin"
+    QBIT_PASSWORD: str
 
     # App security
     SECRET_KEY: str
