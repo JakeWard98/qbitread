@@ -4,7 +4,7 @@ services:
     container_name: qbitread
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8112:8000"
     environment:
       - QBIT_HOST=${QBIT_HOST:-http://localhost:8080}
       - QBIT_USERNAME=${QBIT_USERNAME:-admin}
