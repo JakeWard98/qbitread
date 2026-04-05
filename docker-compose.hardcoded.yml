@@ -1,0 +1,29 @@
+# ============================================================================
+# WARNING: This is NOT the preferred way to configure qbitread.
+# This file is only here as an example to show that you can hardcode values
+# directly instead of using environment variables.
+#
+# The preferred method is to use docker-compose.yml with a .env file.
+# See .env.example for details.
+# ============================================================================
+
+services:
+  qbitread:
+    build: .
+    container_name: qbitread
+    restart: unless-stopped
+    ports:
+      - "8112:8000"
+    environment:
+      - QBIT_HOST=http://localhost:8080
+      - QBIT_USERNAME=admin
+      - QBIT_PASSWORD=changeme
+      - SECRET_KEY=change-me-to-a-random-64-char-string
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=changeme
+      - SECURE_COOKIES=true
+    volumes:
+      - qbitread_data:/app/data
+
+volumes:
+  qbitread_data:
