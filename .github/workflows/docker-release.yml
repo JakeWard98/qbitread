@@ -1,0 +1,89 @@
+name: Build and Publish Docker Image
+
+# Fires only when a GitHub Release is explicitly published.
+# Draft and unpublished releases do NOT trigger this workflow.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  # github.repository is "JakeWard98/qbitread" — GHCR normalises to lowercase automatically.
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build and push multi-platform image
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. QEMU for cross-platform emulation ───────────────────────────────
+      # Allows the amd64 runner to build ARM64 images via software emulation.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # ── 3. Docker Buildx ───────────────────────────────────────────────────
+      # Required for multi-platform builds and registry-based layer caching.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── 4. Log in to GHCR ─────────────────────────────────────────────────
+      # Uses the auto-injected GITHUB_TOKEN — no manual secrets required.
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 5. Extract Docker metadata ─────────────────────────────────────────
+      # Given a release tag of v1.2.3 (or v0.0.1), this generates:
+      #   ghcr.io/jakeward98/qbitread:1.2.3  (or 0.0.1)
+      #   ghcr.io/jakeward98/qbitread:1.2    (or 0.0)
+      #   ghcr.io/jakeward98/qbitread:1      (or 0)
+      #   ghcr.io/jakeward98/qbitread:latest
+      # OCI-standard labels (org.opencontainers.image.*) are also attached.
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=true
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      # ── 6. Build and push ──────────────────────────────────────────────────
+      # Registry cache (type=registry, mode=max) is used instead of type=gha
+      # because concurrent multi-platform builds write cache layers in parallel;
+      # the GHA cache backend cannot handle concurrent writes from multiple
+      # platforms. The registry backend stores cache manifests in GHCR alongside
+      # the image and handles this correctly.
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+      # ── 7. Print image digest ──────────────────────────────────────────────
+      # The sha256 digest is the immutable identifier for this exact build.
+      # Useful for pinning in production deployments and for audit trails.
+      - name: Print image digest
+        run: echo "Image digest ${{ steps.build.outputs.digest }}"
