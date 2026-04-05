@@ -1,7 +1,7 @@
 # ── Stage 1: build ────────────────────────────────────────────────────────
 FROM python:3.12-slim AS builder
 
-# Build tools needed by passlib[bcrypt] (C extension) and any future packages
+# Build tools needed by bcrypt (C extension) and any future packages
 # that require compilation. Cleaned in this layer via rm to minimise stage size.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \

@@ -2,17 +2,17 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from passlib.hash import bcrypt
+import bcrypt
 
 from app.config import settings
 
 
 def hash_password(password: str) -> str:
-    return bcrypt.hash(password)
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.verify(password, hashed)
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
 def create_jwt(username: str, is_admin: bool) -> str:
