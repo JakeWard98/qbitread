@@ -1,7 +1,7 @@
+import sqlite3
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User
@@ -18,18 +18,22 @@ async def login(
     request: Request,
     body: LoginRequest,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
-    # Rate limiting is handled by middleware
-    result = await db.execute(select(User).where(User.username == body.username))
-    user = result.scalar_one_or_none()
+    cursor = await db.execute(
+        "SELECT * FROM users WHERE username = ?", (body.username,)
+    )
+    row = await cursor.fetchone()
+    user = User.from_row(row)
     if not user or not verify_password(body.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # Check password against current policy and update flag
     meets_policy = password_meets_policy(body.password)
     if user.password_meets_policy != meets_policy:
-        user.password_meets_policy = meets_policy
+        await db.execute(
+            "UPDATE users SET password_meets_policy = ? WHERE id = ?",
+            (meets_policy, user.id),
+        )
         await db.commit()
 
     token = create_jwt(user.username, user.role)
@@ -63,22 +67,21 @@ async def login(
 @router.post("/setup", status_code=201)
 async def initial_setup(
     body: UserCreate,
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
-    result = await db.execute(select(User).limit(1))
-    if result.scalar_one_or_none() is not None:
+    cursor = await db.execute("SELECT * FROM users LIMIT 1")
+    if await cursor.fetchone() is not None:
         raise HTTPException(status_code=403, detail="Setup already completed")
 
-    user = User(
-        username=body.username,
-        password=hash_password(body.password),
-        role="admin",
-        password_meets_policy=True,
-    )
-    db.add(user)
+    now = datetime.now(timezone.utc).isoformat()
     try:
+        await db.execute(
+            "INSERT INTO users (username, password, role, created_at, password_meets_policy) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (body.username, hash_password(body.password), "admin", now, True),
+        )
         await db.commit()
-    except IntegrityError:
+    except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="Setup already completed")
     return {"message": "Admin account created. Please log in."}
 
@@ -98,32 +101,41 @@ async def me(user: User = Depends(get_current_user)):
 @router.get("/users", response_model=list[UserOut])
 async def list_users(
     _: User = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
-    result = await db.execute(select(User).order_by(User.created_at))
-    return result.scalars().all()
+    cursor = await db.execute("SELECT * FROM users ORDER BY created_at")
+    rows = await cursor.fetchall()
+    return [User.from_row(r) for r in rows]
 
 
 @router.post("/users", response_model=UserOut, status_code=201)
 async def create_user(
     body: UserCreate,
     _: User = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
-    existing = await db.execute(select(User).where(User.username == body.username))
-    if existing.scalar_one_or_none():
+    cursor = await db.execute(
+        "SELECT * FROM users WHERE username = ?", (body.username,)
+    )
+    if await cursor.fetchone():
         raise HTTPException(status_code=409, detail="Username already exists")
 
-    user = User(
+    now = datetime.now(timezone.utc).isoformat()
+    cursor = await db.execute(
+        "INSERT INTO users (username, password, role, created_at, password_meets_policy) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (body.username, hash_password(body.password), body.role, now, True),
+    )
+    await db.commit()
+
+    return User(
+        id=cursor.lastrowid,
         username=body.username,
         password=hash_password(body.password),
         role=body.role,
+        created_at=datetime.fromisoformat(now),
         password_meets_policy=True,
     )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
 
 
 @router.put("/users/{user_id}/password", status_code=200)
@@ -131,15 +143,17 @@ async def change_user_password(
     user_id: int,
     body: PasswordUpdate,
     _: User = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
+    cursor = await db.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    row = await cursor.fetchone()
+    if not row:
         raise HTTPException(status_code=404, detail="User not found")
 
-    user.password = hash_password(body.password)
-    user.password_meets_policy = True
+    await db.execute(
+        "UPDATE users SET password = ?, password_meets_policy = ? WHERE id = ?",
+        (hash_password(body.password), True, user_id),
+    )
     await db.commit()
     return {"message": "Password updated"}
 
@@ -148,15 +162,14 @@ async def change_user_password(
 async def delete_user(
     user_id: int,
     current_user: User = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ):
     if current_user.id == user_id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
 
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
+    cursor = await db.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    if not await cursor.fetchone():
         raise HTTPException(status_code=404, detail="User not found")
 
-    await db.delete(user)
+    await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
     await db.commit()

@@ -15,7 +15,11 @@ ENV PATH="/venv/bin:$PATH"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --no-compile -r requirements.txt \
+    && pip uninstall -y Jinja2 MarkupSafe 2>/dev/null; true \
     && find /venv -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true \
+    && find /venv -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null; true \
+    && find /venv -name "*.pyi" -delete 2>/dev/null; true \
+    && find /venv -name "py.typed" -delete 2>/dev/null; true \
     && pip uninstall -y pip setuptools 2>/dev/null; true
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────

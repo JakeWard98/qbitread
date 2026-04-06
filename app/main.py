@@ -1,16 +1,16 @@
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
 
 from app.auth.models import User
 from app.auth.router import router as auth_router
 from app.auth.security import hash_password, verify_jwt
 from app.config import settings
-from app.database import async_session, init_db
+from app.database import get_connection, init_db
 from app.middleware import CSRFMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from app.qbit.client import QBitClient
 from app.qbit.router import router as qbit_router
@@ -45,18 +45,18 @@ async def bootstrap_admin():
         logger.info("No ADMIN_PASSWORD set — setup wizard will be available on first visit")
         return
 
-    async with async_session() as db:
-        result = await db.execute(
-            select(User).where(User.username == settings.ADMIN_USERNAME)
+    async with get_connection() as db:
+        cursor = await db.execute(
+            "SELECT * FROM users WHERE username = ?", (settings.ADMIN_USERNAME,)
         )
-        admin = result.scalar_one_or_none()
+        admin = await cursor.fetchone()
         if admin is None:
-            admin = User(
-                username=settings.ADMIN_USERNAME,
-                password=hash_password(settings.ADMIN_PASSWORD),
-                role="admin",
+            now = datetime.now(timezone.utc).isoformat()
+            await db.execute(
+                "INSERT INTO users (username, password, role, created_at, password_meets_policy) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (settings.ADMIN_USERNAME, hash_password(settings.ADMIN_PASSWORD), "admin", now, True),
             )
-            db.add(admin)
             await db.commit()
             logger.info("Admin user '%s' created", settings.ADMIN_USERNAME)
         else:
@@ -64,9 +64,9 @@ async def bootstrap_admin():
 
 
 async def _has_users() -> bool:
-    async with async_session() as db:
-        result = await db.execute(select(User).limit(1))
-        return result.scalar_one_or_none() is not None
+    async with get_connection() as db:
+        cursor = await db.execute("SELECT 1 FROM users LIMIT 1")
+        return await cursor.fetchone() is not None
 
 
 app = FastAPI(title="qBitRead", docs_url=None, redoc_url=None, lifespan=lifespan)
