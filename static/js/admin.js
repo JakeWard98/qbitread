@@ -125,6 +125,165 @@
     window.location.href = '/login';
   });
 
+  /* ── qBittorrent Connection ── */
+  const qbitDot = $('qbit-dot');
+  const qbitStatusText = $('qbit-status-text');
+  const qbitStatusMsg = $('qbit-status-msg');
+  const browserAuthMsg = $('browser-auth-msg');
+
+  async function loadConnectionInfo() {
+    try {
+      const resp = await fetch('/api/qbit/connection-info');
+      if (!resp.ok) return;
+      const info = await resp.json();
+
+      if (info.authenticated) {
+        qbitDot.className = 'dot dot-green';
+        qbitStatusText.textContent = 'Connected';
+        qbitStatusText.style.color = 'var(--green)';
+        qbitStatusMsg.textContent = '';
+      } else if (info.ban_detected) {
+        qbitDot.className = 'dot dot-red';
+        qbitStatusText.textContent = 'IP Banned';
+        qbitStatusText.style.color = 'var(--red)';
+        qbitStatusMsg.textContent = 'Ban time remaining: ~' + info.ban_seconds_remaining + 's. Use Browser Auth or wait for ban to lift.';
+      } else if (info.cooldown_remaining > 0) {
+        qbitDot.className = 'dot dot-red';
+        qbitStatusText.textContent = 'Cooldown';
+        qbitStatusText.style.color = 'var(--yellow)';
+        qbitStatusMsg.textContent = 'Retry cooldown: ' + info.cooldown_remaining + 's remaining.';
+      } else {
+        qbitDot.className = 'dot dot-red';
+        qbitStatusText.textContent = 'Disconnected';
+        qbitStatusText.style.color = 'var(--red)';
+        qbitStatusMsg.textContent = 'Not authenticated with qBittorrent.';
+      }
+
+      // Pre-fill fields from config
+      if (info.browser_host && !$('qbit-url').value) {
+        $('qbit-url').value = info.browser_host;
+      }
+      if (info.qbit_username && !$('qbit-user').value) {
+        $('qbit-user').value = info.qbit_username;
+      }
+    } catch {
+      qbitDot.className = 'dot dot-red';
+      qbitStatusText.textContent = 'Error';
+      qbitStatusText.style.color = 'var(--red)';
+    }
+  }
+
+  $('btn-retry-login').addEventListener('click', async () => {
+    const btn = $('btn-retry-login');
+    btn.disabled = true;
+    btn.textContent = 'Retrying...';
+    qbitStatusMsg.textContent = '';
+    try {
+      const resp = await fetch('/api/qbit/retry-login', {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': getCsrfToken() },
+      });
+      const data = await resp.json();
+      qbitStatusMsg.textContent = data.message || '';
+      qbitStatusMsg.style.color = data.success ? 'var(--green)' : 'var(--red)';
+      await loadConnectionInfo();
+    } catch {
+      qbitStatusMsg.textContent = 'Network error.';
+      qbitStatusMsg.style.color = 'var(--red)';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Retry Login';
+  });
+
+  $('btn-autofill').addEventListener('click', async () => {
+    browserAuthMsg.textContent = '';
+    try {
+      const resp = await fetch('/api/qbit/browser-auth-creds');
+      if (!resp.ok) {
+        browserAuthMsg.textContent = 'Failed to fetch credentials.';
+        browserAuthMsg.style.color = 'var(--red)';
+        return;
+      }
+      const creds = await resp.json();
+      if (creds.url) $('qbit-url').value = creds.url;
+      if (creds.username) $('qbit-user').value = creds.username;
+      if (creds.password) $('qbit-pass').value = creds.password;
+      browserAuthMsg.textContent = 'Credentials loaded from server.';
+      browserAuthMsg.style.color = 'var(--green)';
+    } catch {
+      browserAuthMsg.textContent = 'Network error.';
+      browserAuthMsg.style.color = 'var(--red)';
+    }
+  });
+
+  $('btn-browser-auth').addEventListener('click', () => {
+    const url = $('qbit-url').value.trim();
+    const username = $('qbit-user').value.trim();
+    const password = $('qbit-pass').value;
+
+    if (!url) {
+      browserAuthMsg.textContent = 'qBit URL is required.';
+      browserAuthMsg.style.color = 'var(--red)';
+      return;
+    }
+    if (!username || !password) {
+      browserAuthMsg.textContent = 'Username and password are required.';
+      browserAuthMsg.style.color = 'var(--red)';
+      return;
+    }
+
+    // Create sandboxed hidden iframe (no allow-same-origin to protect our cookies)
+    const iframe = document.createElement('iframe');
+    iframe.name = 'qbit-auth-frame';
+    iframe.sandbox = 'allow-forms allow-scripts';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    // Create hidden form targeting the iframe
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url.replace(/\/+$/, '') + '/api/v2/auth/login';
+    form.target = 'qbit-auth-frame';
+    form.style.display = 'none';
+
+    const inputUser = document.createElement('input');
+    inputUser.type = 'hidden';
+    inputUser.name = 'username';
+    inputUser.value = username;
+    form.appendChild(inputUser);
+
+    const inputPass = document.createElement('input');
+    inputPass.type = 'hidden';
+    inputPass.name = 'password';
+    inputPass.value = password;
+    form.appendChild(inputPass);
+
+    document.body.appendChild(form);
+    form.submit();
+
+    browserAuthMsg.textContent = 'Auth request sent to qBittorrent. Click "Retry Login" to check if the backend can now connect.';
+    browserAuthMsg.style.color = 'var(--accent)';
+
+    // Clean up after 5 seconds
+    setTimeout(() => {
+      iframe.remove();
+      form.remove();
+    }, 5000);
+  });
+
+  $('btn-open-webui').addEventListener('click', () => {
+    const url = $('qbit-url').value.trim();
+    if (!url) {
+      browserAuthMsg.textContent = 'Enter a qBit URL first.';
+      browserAuthMsg.style.color = 'var(--red)';
+      return;
+    }
+    window.open(url, '_blank');
+  });
+
   /* ── Boot ── */
-  checkAdmin().then(() => loadUsers());
+  checkAdmin().then(() => {
+    loadUsers();
+    loadConnectionInfo();
+  });
 })();
