@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response as StarletteResponse
 
 from app.auth.models import User
 from app.auth.router import router as auth_router
@@ -86,7 +87,22 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles wrapper that forces revalidation on JS/CSS assets.
+
+    Without this, browsers and CDN edges (e.g. Cloudflare) cache app.js / style.css
+    and continue serving stale versions after a container update — producing
+    "$(...) is null" errors when stale JS runs against newer HTML.
+    """
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if isinstance(response, StarletteResponse) and path.endswith((".js", ".css")):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
+
+
+app.mount("/static", NoCacheStaticFiles(directory="static"), name="static")
 
 # API routers
 app.include_router(auth_router)
