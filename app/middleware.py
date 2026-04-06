@@ -15,13 +15,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        response.headers["Content-Security-Policy"] = (
+        csp = (
             "default-src 'self'; "
             "style-src 'self' 'unsafe-inline'; "
             "script-src 'self'; "
             "img-src 'self' data:; "
             "connect-src 'self'"
         )
+        browser_host = settings.QBIT_BROWSER_HOST
+        if browser_host:
+            # Lock form/frame targets to self + configured browser host
+            csp += f"; form-action 'self' {browser_host}"
+            csp += f"; frame-src 'self' {browser_host}"
+        response.headers["Content-Security-Policy"] = csp
         return response
 
 

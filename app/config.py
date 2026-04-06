@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     QBIT_HOST: str
     QBIT_USERNAME: str = "admin"
     QBIT_PASSWORD: str
+    QBIT_BROWSER_HOST: str = ""  # Browser-accessible qBit URL (optional)
 
     # App security
     SECRET_KEY: str = ""

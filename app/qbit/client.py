@@ -120,6 +120,36 @@ class QBitClient:
         resp.raise_for_status()
         return resp.json()
 
+    def get_status(self) -> dict:
+        now = time.monotonic()
+        cooldown_remaining = 0
+        if self._login_cooldown > 0 and self._last_login_failure > 0:
+            elapsed = now - self._last_login_failure
+            cooldown_remaining = max(0, int(self._login_cooldown - elapsed))
+
+        ban_seconds_remaining = 0
+        if self._ban_detected_at > 0:
+            ban_elapsed = now - self._ban_detected_at
+            ban_seconds_remaining = max(0, int(self._BAN_MAX_DURATION - ban_elapsed))
+
+        return {
+            "authenticated": self._authenticated,
+            "ban_detected": self._ban_detected_at > 0,
+            "cooldown_remaining": cooldown_remaining,
+            "ban_seconds_remaining": ban_seconds_remaining,
+        }
+
+    def reset_circuit_breaker(self):
+        self._login_cooldown = 0
+        self._ban_detected_at = 0.0
+        self._last_login_failure = 0.0
+        self._authenticated = False
+        logger.info("Circuit breaker reset by admin")
+
+    async def force_login(self):
+        self.reset_circuit_breaker()
+        await self._login()
+
     async def get_torrents(self) -> list[dict]:
         return await self._request("/api/v2/torrents/info")
 

@@ -13,6 +13,7 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - SECURE_COOKIES=${SECURE_COOKIES:-false}
+      - QBIT_BROWSER_HOST=${QBIT_BROWSER_HOST:-}
     volumes:
       - qbitread_data:/app/data
 
