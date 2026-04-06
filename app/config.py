@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Rate limiting
     LOGIN_RATE_LIMIT: int = 5  # attempts per minute
 
+    # Trusted reverse proxy IPs (only trust X-Forwarded-For from these)
+    TRUSTED_PROXIES: list[str] = []
+
     # Cookie security (disable Secure flag for local dev without HTTPS)
     SECURE_COOKIES: bool = False
 
@@ -70,3 +73,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+if not settings.SECURE_COOKIES:
+    logger.warning(
+        "SECURE_COOKIES is False — cookies will not have the Secure flag. "
+        "Set SECURE_COOKIES=true in production behind HTTPS."
+    )

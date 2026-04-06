@@ -9,7 +9,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 db_path = settings.DATABASE_PATH
-os.makedirs(os.path.dirname(db_path), exist_ok=True)
+os.makedirs(os.path.dirname(db_path), mode=0o700, exist_ok=True)
 
 CREATE_USERS_TABLE = """\
 CREATE TABLE IF NOT EXISTS users (
