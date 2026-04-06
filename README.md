@@ -2,6 +2,8 @@
 
 A lightweight Docker web app that monitors your qBittorrent instance. Dark, minimal dashboard showing all torrents with live speeds, progress, and ETA.
 
+> **Disclaimer:** This is a personal project built for my own homelab, completely written with Claude AI. It is available for anyone to use, but **use at your own risk**. No warranties or guarantees are provided.
+
 ## Features
 
 - Real-time torrent monitoring (5s polling)
