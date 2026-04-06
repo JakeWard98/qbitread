@@ -8,7 +8,9 @@ A lightweight Docker web app that monitors your qBittorrent instance. Dark, mini
 - Filter by status: All / Downloading / Seeding / Stalled / Paused
 - Sortable columns, search
 - User authentication with admin role
-- Admin panel to create/delete users
+- Admin panel to create/delete users and change passwords
+- Password policy enforcement (8+ chars, uppercase, lowercase, digit, special character)
+- Weak password detection — existing users with grandfathered passwords see a dashboard banner
 - First-run setup wizard (no config file editing required)
 - Security: CSRF protection, rate-limited login, security headers, HTTP-only JWT cookies
 - qBittorrent credentials never exposed to the browser
@@ -67,7 +69,7 @@ Pre-releases do **not** update `latest`, so stable users are unaffected.
 | `QBIT_PASSWORD` | Yes | — | qBittorrent password |
 | `SECRET_KEY` | No | auto-generated | Random string for JWT signing. Auto-generated and persisted to the data volume if not set. |
 | `ADMIN_USERNAME` | No | `admin` | **Recommended.** Bootstrap admin username. |
-| `ADMIN_PASSWORD` | No | — | **Recommended.** Bootstrap admin password. If omitted, a setup wizard is shown on first run. |
+| `ADMIN_PASSWORD` | No | — | **Recommended.** Bootstrap admin password (must meet password policy: 8+ chars, uppercase, lowercase, digit, special char). If omitted, a setup wizard is shown on first run. |
 | `SECURE_COOKIES` | No | `false` | Set to `true` if behind an HTTPS reverse proxy |
 
 ## Production: HTTPS with Reverse Proxy
@@ -109,6 +111,8 @@ When using HTTPS, set `SECURE_COOKIES=true` in your environment.
 - JWT tokens stored in HTTP-only, SameSite=Strict cookies (Secure flag when `SECURE_COOKIES=true`)
 - CSRF double-submit cookie protection on all mutating API requests
 - Login rate limiting (5 attempts/min per IP)
+- Password policy: 8+ characters, uppercase, lowercase, digit, and special character required
+- Grandfathered weak passwords are flagged at login; admins can update them from the admin panel
 - Security headers: CSP, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy
 - qBittorrent credentials stay server-side only
 - Container runs as non-root user
