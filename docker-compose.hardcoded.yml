@@ -15,7 +15,7 @@ services:
     ports:
       - "8112:8000"
     environment:
-      - QBIT_HOST=http://localhost:8080
+      - QBIT_HOST=http://your-qbittorrent-ip:8080  # REQUIRED: set to your qBittorrent URL
       - QBIT_USERNAME=admin
       - QBIT_PASSWORD=changeme
       # SECRET_KEY is auto-generated if omitted

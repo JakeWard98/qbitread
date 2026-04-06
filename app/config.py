@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     # qBittorrent connection
-    QBIT_HOST: str = "http://localhost:8080"
+    QBIT_HOST: str
     QBIT_USERNAME: str = "admin"
     QBIT_PASSWORD: str
 
