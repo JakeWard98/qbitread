@@ -30,6 +30,11 @@ async def lifespan(app: FastAPI):
         password=settings.QBIT_PASSWORD,
     )
     logger.info("qBitRead started — qBit target: %s", settings.QBIT_HOST)
+    try:
+        await app.state.qbit_client._login()
+        logger.info("Initial qBittorrent login successful")
+    except ConnectionError as e:
+        logger.warning("Initial qBittorrent login failed (will retry on first request): %s", e)
     yield
     # Shutdown
     await app.state.qbit_client.close()

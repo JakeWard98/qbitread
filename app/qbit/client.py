@@ -17,7 +17,9 @@ class QBitClient:
         self._login_cooldown = 0
         self._last_login_failure = 0.0
         self._MAX_COOLDOWN = 300
-        self._BAN_COOLDOWN = 900  # 15 minutes for IP ban
+        self._BAN_MAX_DURATION = 900  # 15 minutes total ban window
+        self._BAN_PROBE_INTERVAL = 60  # retry every 60s during ban
+        self._ban_detected_at = 0.0  # when ban was first detected
         self._login_lock = asyncio.Lock()
 
     async def _login(self):
@@ -30,6 +32,18 @@ class QBitClient:
         # Circuit breaker: skip login if in cooldown
         now = time.monotonic()
         elapsed = now - self._last_login_failure
+
+        # If banned and total ban window has elapsed, clear cooldown and retry
+        if self._ban_detected_at > 0:
+            ban_elapsed = now - self._ban_detected_at
+            if ban_elapsed >= self._BAN_MAX_DURATION:
+                logger.info(
+                    "Ban window (%ds) expired. Retrying login.",
+                    self._BAN_MAX_DURATION,
+                )
+                self._login_cooldown = 0
+                self._ban_detected_at = 0.0
+
         if self._login_cooldown > 0 and elapsed < self._login_cooldown:
             remaining = int(self._login_cooldown - elapsed)
             raise ConnectionError(
@@ -49,6 +63,7 @@ class QBitClient:
         if resp.status_code == 200 and resp.text.strip() == "Ok.":
             self._authenticated = True
             self._login_cooldown = 0
+            self._ban_detected_at = 0.0
             logger.info("Authenticated with qBittorrent")
         else:
             self._authenticated = False
@@ -56,7 +71,7 @@ class QBitClient:
             if resp.status_code == 403 and "banned" in resp.text.lower():
                 self._record_login_failure(ban=True)
                 raise ConnectionError(
-                    f"IP banned by qBittorrent. Pausing login attempts for 15 minutes."
+                    f"IP banned by qBittorrent. Will probe every 60s until ban lifts."
                 )
             self._record_login_failure()
             raise ConnectionError(f"qBittorrent login failed: {resp.text}")
@@ -64,12 +79,17 @@ class QBitClient:
     def _record_login_failure(self, ban: bool = False):
         self._last_login_failure = time.monotonic()
         if ban:
-            self._login_cooldown = self._BAN_COOLDOWN
+            if self._ban_detected_at == 0.0:
+                self._ban_detected_at = time.monotonic()
+            self._login_cooldown = self._BAN_PROBE_INTERVAL
+            ban_elapsed = int(time.monotonic() - self._ban_detected_at)
             logger.warning(
-                "IP banned by qBittorrent. Next login attempt in %ds.",
+                "IP banned by qBittorrent. Next probe in %ds (ban detected %ds ago).",
                 self._login_cooldown,
+                ban_elapsed,
             )
         else:
+            self._ban_detected_at = 0.0
             if self._login_cooldown == 0:
                 self._login_cooldown = 10
             else:
@@ -91,7 +111,7 @@ class QBitClient:
             if "banned" in resp.text.lower():
                 self._record_login_failure(ban=True)
                 raise ConnectionError(
-                    "IP banned by qBittorrent. Pausing login attempts for 15 minutes."
+                    "IP banned by qBittorrent. Will probe every 60s until ban lifts."
                 )
             self._authenticated = False
             await self._login()

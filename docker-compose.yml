@@ -6,7 +6,7 @@ services:
     ports:
       - "8112:8000"
     environment:
-      - QBIT_HOST=${QBIT_HOST:-http://localhost:8080}
+      - QBIT_HOST=${QBIT_HOST:?Set QBIT_HOST in .env}
       - QBIT_USERNAME=${QBIT_USERNAME:-admin}
       - QBIT_PASSWORD=${QBIT_PASSWORD:?Set QBIT_PASSWORD in .env}
       - SECRET_KEY=${SECRET_KEY:-}
