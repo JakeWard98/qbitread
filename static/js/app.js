@@ -290,7 +290,7 @@
           '<td class="num dl-speed">' + fmtSpeed(t.dlspeed) + '</td>' +
           '<td class="num ul-speed">' + fmtSpeed(t.upspeed) + '</td>' +
           '<td class="num eta">' + fmtEta(t.eta) + '</td>' +
-          (showRatio ? '<td class="num">' + fmtRatio(t.ratio) + '</td>' : '') +
+          (showRatio ? '<td class="num ratio">' + fmtRatio(t.ratio) + '</td>' : '') +
           '<td><span class="badge badge-' + sc + '">' + stateLabel(t.state) + '</span></td>' +
           '</tr>'
         );
@@ -307,9 +307,21 @@
       document.querySelectorAll('thead th').forEach((x) => x.classList.remove('sorted'));
       th.classList.add('sorted');
       th.querySelector('.sort-icon').textContent = sortDir === -1 ? '\u2193' : '\u2191';
+      const ms = $('mobile-sort');
+      if (ms) ms.value = sortCol;
       render();
     });
   });
+
+  /* ── Mobile sort dropdown ── */
+  const mobileSort = $('mobile-sort');
+  if (mobileSort) {
+    mobileSort.addEventListener('change', () => {
+      sortCol = mobileSort.value;
+      sortDir = -1;
+      render();
+    });
+  }
 
   /* ── Filter ── */
   document.querySelectorAll('.filter-btn').forEach((btn) => {

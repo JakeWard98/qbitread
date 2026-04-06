@@ -33,9 +33,19 @@
       <button class="filter-btn" data-filter="active">Active <span class="filter-count" id="fc-active">0</span></button>
       <button class="filter-btn" data-filter="stalled">Stalled <span class="filter-count" id="fc-stalled">0</span></button>
     </div>
-    <div style="display:flex;gap:10px;align-items:center">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <span id="refresh-info"></span>
       <input id="search" type="text" placeholder="Search torrents...">
+      <select id="mobile-sort" class="mobile-sort">
+        <option value="dlspeed">Sort: DL Speed</option>
+        <option value="name">Sort: Name</option>
+        <option value="size">Sort: Size</option>
+        <option value="progress">Sort: Progress</option>
+        <option value="upspeed">Sort: UL Speed</option>
+        <option value="eta">Sort: ETA</option>
+        <option value="ratio">Sort: Ratio</option>
+        <option value="state">Sort: Status</option>
+      </select>
     </div>
   </div>
   <div class="table-wrap">
