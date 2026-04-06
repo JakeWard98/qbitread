@@ -150,6 +150,12 @@ qBittorrent bans IPs after too many failed login attempts. qBitRead detects this
 **Dashboard not loading**
 Check browser console for errors. Ensure your reverse proxy is forwarding headers correctly and that `SECURE_COOKIES` matches your setup (true for HTTPS, false for HTTP).
 
+**CSP console warning: "blocked an inline script (script-src-elem)" behind Cloudflare**
+qBitRead's `Content-Security-Policy` is intentionally strict (`script-src 'self'`) and blocks any inline `<script>` injected into the page by an upstream proxy. The warning is cosmetic — the dashboard does not need the injected script and continues to work. To silence it, disable Cloudflare's **Email Address Obfuscation** (Scrape Shield → Email Address Obfuscation) and **Rocket Loader** (Speed → Optimization → Content Optimization) for the qBitRead hostname.
+
+**"Cannot reach qBittorrent: Cannot set properties of null" after upgrading**
+This means your browser or CDN is still serving a cached, pre-upgrade `app.js`. qBitRead now ships `Cache-Control: no-cache, must-revalidate` on JS/CSS so future upgrades invalidate automatically, but a one-time cache purge may be needed after upgrading from an older version: hard-reload (`Ctrl+Shift+R`) and, if you sit behind Cloudflare, purge `/static/js/app.js` from the Cloudflare cache once.
+
 ## Development
 
 ```bash
