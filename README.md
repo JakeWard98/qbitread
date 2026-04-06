@@ -32,6 +32,32 @@ docker compose up -d
 # Open http://localhost:8112
 ```
 
+## Docker Image Tags
+
+The image is published to GitHub Container Registry at `ghcr.io/jakeward98/qbitread` and supports both `linux/amd64` and `linux/arm64` platforms.
+
+```bash
+docker pull ghcr.io/jakeward98/qbitread:latest
+```
+
+**Stable releases** (e.g. GitHub release `v1.2.3`) produce these tags:
+
+| Tag | Description |
+|-----|-------------|
+| `1.2.3` | Exact version — pinned, never changes |
+| `1.2` | Latest patch within the `1.2.x` line |
+| `1` | Latest minor + patch within the `1.x.x` line |
+| `latest` | Most recent stable release |
+
+**Pre-releases** (e.g. GitHub release `v1.2.3-beta.1`) produce these tags:
+
+| Tag | Description |
+|-----|-------------|
+| `1.2.3-beta.1` | Exact pre-release version |
+| `beta` | Most recent pre-release |
+
+Pre-releases do **not** update `latest`, so stable users are unaffected.
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
