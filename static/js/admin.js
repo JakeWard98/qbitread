@@ -32,16 +32,26 @@
     }
   }
 
+  function roleBadgeClass(role) {
+    if (role === 'admin') return 'badge-admin';
+    if (role === 'manager') return 'badge-manager';
+    return 'badge-user';
+  }
+
+  function roleLabel(role) {
+    if (role === 'admin') return 'Admin';
+    if (role === 'manager') return 'Manager';
+    return 'User';
+  }
+
   function renderUsers(users) {
     tbody.innerHTML = users
       .map((u) => {
-        const role = u.is_admin ? 'Admin' : 'User';
-        const badgeClass = u.is_admin ? 'badge-admin' : 'badge-user';
         const created = new Date(u.created_at).toLocaleDateString();
         return (
           '<tr>' +
           '<td>' + escHtml(u.username) + '</td>' +
-          '<td><span class="badge ' + badgeClass + '">' + role + '</span></td>' +
+          '<td><span class="badge ' + roleBadgeClass(u.role) + '">' + roleLabel(u.role) + '</span></td>' +
           '<td style="color:var(--muted)">' + created + '</td>' +
           '<td><button class="btn-danger btn-del" data-id="' + u.id + '">Delete</button></td>' +
           '</tr>'
@@ -83,7 +93,7 @@
     errorEl.textContent = '';
     const username = $('new-username').value.trim();
     const password = $('new-password').value;
-    const is_admin = $('new-admin').checked;
+    const role = $('new-role').value;
 
     if (!username || !password) {
       errorEl.textContent = 'Username and password are required.';
@@ -101,7 +111,7 @@
           'Content-Type': 'application/json',
           'X-CSRF-Token': getCsrfToken(),
         },
-        body: JSON.stringify({ username, password, is_admin }),
+        body: JSON.stringify({ username, password, role }),
       });
 
       if (!resp.ok) {
@@ -112,7 +122,7 @@
 
       $('new-username').value = '';
       $('new-password').value = '';
-      $('new-admin').checked = false;
+      $('new-role').value = 'user';
       loadUsers();
     } catch {
       errorEl.textContent = 'Network error.';

@@ -54,7 +54,7 @@ async def bootstrap_admin():
             admin = User(
                 username=settings.ADMIN_USERNAME,
                 password=hash_password(settings.ADMIN_PASSWORD),
-                is_admin=True,
+                role="admin",
             )
             db.add(admin)
             await db.commit()
@@ -105,7 +105,7 @@ async def admin_page(request: Request):
     if not token:
         return RedirectResponse("/login")
     payload = verify_jwt(token)
-    if not payload or not payload.get("admin"):
+    if not payload or payload.get("role") != "admin":
         return RedirectResponse("/")
     return FileResponse("templates/admin.html")
 

@@ -1,10 +1,13 @@
+import logging
 import os
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 
 db_path = settings.DATABASE_PATH
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -17,9 +20,41 @@ class Base(DeclarativeBase):
     pass
 
 
+async def _migrate_is_admin_to_role(conn):
+    """Migrate old is_admin boolean column to role string column via table rebuild."""
+    result = await conn.execute(text("PRAGMA table_info(users)"))
+    columns = {row[1] for row in result.fetchall()}
+
+    if "is_admin" not in columns or "role" in columns:
+        return  # No migration needed
+
+    logger.info("Migrating users table: is_admin -> role")
+    await conn.execute(text(
+        "CREATE TABLE users_new ("
+        "  id INTEGER PRIMARY KEY,"
+        "  username VARCHAR(50) NOT NULL UNIQUE,"
+        "  password VARCHAR(128) NOT NULL,"
+        "  role VARCHAR(20) NOT NULL DEFAULT 'user',"
+        "  created_at DATETIME"
+        ")"
+    ))
+    await conn.execute(text(
+        "INSERT INTO users_new (id, username, password, role, created_at) "
+        "SELECT id, username, password, "
+        "  CASE WHEN is_admin = 1 THEN 'admin' ELSE 'user' END, "
+        "  created_at "
+        "FROM users"
+    ))
+    await conn.execute(text("DROP TABLE users"))
+    await conn.execute(text("ALTER TABLE users_new RENAME TO users"))
+    logger.info("Users table migration complete")
+
+
 async def init_db():
     from app.auth.models import User  # noqa: F401
     async with engine.begin() as conn:
+        # Run migration before create_all (so create_all sees the new schema)
+        await _migrate_is_admin_to_role(conn)
         await conn.run_sync(Base.metadata.create_all)
 
 

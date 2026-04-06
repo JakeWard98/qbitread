@@ -26,7 +26,7 @@ async def login(
     if not user or not verify_password(body.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_jwt(user.username, user.is_admin)
+    token = create_jwt(user.username, user.role)
     csrf_token = generate_csrf_token()
 
     response.set_cookie(
@@ -45,7 +45,7 @@ async def login(
         samesite="strict",
         max_age=settings.JWT_EXPIRY_MINUTES * 60,
     )
-    return {"message": "OK", "is_admin": user.is_admin, "username": user.username}
+    return {"message": "OK", "is_admin": user.is_admin, "role": user.role, "username": user.username}
 
 
 @router.post("/setup", status_code=201)
@@ -60,7 +60,7 @@ async def initial_setup(
     user = User(
         username=body.username,
         password=hash_password(body.password),
-        is_admin=True,
+        role="admin",
     )
     db.add(user)
     try:
@@ -104,7 +104,7 @@ async def create_user(
     user = User(
         username=body.username,
         password=hash_password(body.password),
-        is_admin=body.is_admin,
+        role=body.role,
     )
     db.add(user)
     await db.commit()

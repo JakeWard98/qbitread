@@ -21,17 +21,17 @@
   <div id="stats-bar">
     <div class="stat"><span class="stat-label">Download</span><span class="stat-value dl" id="s-dl">&mdash;</span></div>
     <div class="stat"><span class="stat-label">Upload</span><span class="stat-value ul" id="s-ul">&mdash;</span></div>
-    <div class="stat"><span class="stat-label">Active</span><span class="stat-value small" id="s-active">&mdash;</span></div>
-    <div class="stat"><span class="stat-label">Seeding</span><span class="stat-value small" id="s-seed">&mdash;</span></div>
-    <div class="stat"><span class="stat-label">Paused</span><span class="stat-value small" id="s-paused">&mdash;</span></div>
   </div>
   <div id="toolbar">
     <div id="toolbar-left">
-      <button class="filter-btn active" data-filter="all">All</button>
-      <button class="filter-btn" data-filter="downloading">Downloading</button>
-      <button class="filter-btn" data-filter="seeding">Seeding</button>
-      <button class="filter-btn" data-filter="stalled">Stalled</button>
-      <button class="filter-btn" data-filter="paused">Paused</button>
+      <button class="filter-btn active" data-filter="all">All <span class="filter-count" id="fc-all">0</span></button>
+      <button class="filter-btn" data-filter="downloading">Downloading <span class="filter-count" id="fc-downloading">0</span></button>
+      <button class="filter-btn" data-filter="seeding">Seeding <span class="filter-count" id="fc-seeding">0</span></button>
+      <button class="filter-btn" data-filter="completed">Completed <span class="filter-count" id="fc-completed">0</span></button>
+      <button class="filter-btn" data-filter="running">Running <span class="filter-count" id="fc-running">0</span></button>
+      <button class="filter-btn" data-filter="stopped">Stopped <span class="filter-count" id="fc-stopped">0</span></button>
+      <button class="filter-btn" data-filter="active">Active <span class="filter-count" id="fc-active">0</span></button>
+      <button class="filter-btn" data-filter="stalled">Stalled <span class="filter-count" id="fc-stalled">0</span></button>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
       <span id="refresh-info"></span>

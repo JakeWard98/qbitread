@@ -56,12 +56,24 @@
     return m[s] || s;
   }
 
+  /* ── Category filters ── */
+  const CATEGORY_FILTERS = {
+    downloading: (t) => ['downloading', 'forcedDL', 'stalledDL', 'checkingDL'].includes(t.state),
+    seeding: (t) => ['uploading', 'forcedUP', 'seeding', 'stalledUP', 'checkingUP'].includes(t.state),
+    completed: (t) => t.progress >= 1.0,
+    running: (t) => !['pausedDL', 'pausedUP'].includes(t.state),
+    stopped: (t) => ['pausedDL', 'pausedUP'].includes(t.state),
+    active: (t) => t.dlspeed > 0 || t.upspeed > 0,
+    stalled: (t) => ['stalledDL', 'stalledUP'].includes(t.state),
+  };
+
   /* ── State ── */
   let torrents = [];
   let sortCol = 'dlspeed';
   let sortDir = -1;
   let filterState = 'all';
   let searchQ = '';
+  let userRole = 'user';
   let refreshTimer = null;
   let countdown = 0;
   let countdownTimer = null;
@@ -79,12 +91,21 @@
         return;
       }
       const user = await resp.json();
+      userRole = user.role || 'user';
       if (user.is_admin) {
         $('btn-admin').style.display = '';
       }
+      applyRoleVisibility();
     } catch {
       window.location.href = '/login';
     }
+  }
+
+  /* ── Role visibility ── */
+  function applyRoleVisibility() {
+    const showRatio = userRole === 'admin' || userRole === 'manager';
+    const ratioTh = document.querySelector('thead th[data-col="ratio"]');
+    if (ratioTh) ratioTh.style.display = showRatio ? '' : 'none';
   }
 
   /* ── Connectivity ── */
@@ -176,23 +197,30 @@
   function updateStats(t) {
     $('s-dl').textContent = fmtSpeed(t.dl_info_speed);
     $('s-ul').textContent = fmtSpeed(t.up_info_speed);
-    $('s-active').textContent = torrents.filter((x) =>
-      ['downloading', 'forcedDL', 'checking', 'checkingDL', 'checkingUP'].includes(x.state)
-    ).length;
-    $('s-seed').textContent = torrents.filter((x) =>
-      ['uploading', 'forcedUP', 'seeding'].includes(x.state)
-    ).length;
-    $('s-paused').textContent = torrents.filter((x) =>
-      ['pausedDL', 'pausedUP'].includes(x.state)
-    ).length;
+    computeCounts();
+  }
+
+  function computeCounts() {
+    const counts = { all: torrents.length };
+    for (const key of Object.keys(CATEGORY_FILTERS)) counts[key] = 0;
+    for (const t of torrents) {
+      for (const [key, fn] of Object.entries(CATEGORY_FILTERS)) {
+        if (fn(t)) counts[key]++;
+      }
+    }
+    for (const [key, val] of Object.entries(counts)) {
+      const el = document.getElementById('fc-' + key);
+      if (el) el.textContent = val;
+    }
   }
 
   /* ── Render ── */
   function getFiltered() {
     return torrents.filter((t) => {
       if (filterState !== 'all') {
-        const c = stateClass(t.state);
-        if (filterState !== c) return false;
+        const fn = CATEGORY_FILTERS[filterState];
+        if (fn && !fn(t)) return false;
+        if (!fn && stateClass(t.state) !== filterState) return false;
       }
       if (searchQ && !t.name.toLowerCase().includes(searchQ)) return false;
       return true;
@@ -220,6 +248,7 @@
     }
     empty.style.display = 'none';
 
+    const showRatio = userRole === 'admin' || userRole === 'manager';
     tbody.innerHTML = list
       .map((t) => {
         const sc = stateClass(t.state);
@@ -239,7 +268,7 @@
           '<td class="num dl-speed">' + fmtSpeed(t.dlspeed) + '</td>' +
           '<td class="num ul-speed">' + fmtSpeed(t.upspeed) + '</td>' +
           '<td class="num eta">' + fmtEta(t.eta) + '</td>' +
-          '<td class="num">' + fmtRatio(t.ratio) + '</td>' +
+          (showRatio ? '<td class="num">' + fmtRatio(t.ratio) + '</td>' : '') +
           '<td><span class="badge badge-' + sc + '">' + stateLabel(t.state) + '</span></td>' +
           '</tr>'
         );
