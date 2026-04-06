@@ -92,19 +92,22 @@
       }
       const user = await resp.json();
       userRole = user.role || 'user';
-      if (user.is_admin) {
-        $('btn-admin').style.display = '';
+      const adminBtn = $('btn-admin');
+      if (user.is_admin && adminBtn) {
+        adminBtn.style.display = '';
       }
       applyRoleVisibility();
 
       // Show weak password warning if flagged at login
       if (sessionStorage.getItem('password_weak') === '1') {
         const bar = $('error-bar');
-        bar.innerHTML = '<div class="pw-warn-banner">Your password does not meet current security requirements. Please contact an admin to update it. <button class="btn-ghost pw-warn-dismiss">Dismiss</button></div>';
-        bar.querySelector('.pw-warn-dismiss').addEventListener('click', () => {
-          bar.innerHTML = '';
-          sessionStorage.removeItem('password_weak');
-        });
+        if (bar) {
+          bar.innerHTML = '<div class="pw-warn-banner">Your password does not meet current security requirements. Please contact an admin to update it. <button class="btn-ghost pw-warn-dismiss">Dismiss</button></div>';
+          bar.querySelector('.pw-warn-dismiss').addEventListener('click', () => {
+            bar.innerHTML = '';
+            sessionStorage.removeItem('password_weak');
+          });
+        }
       }
     } catch {
       window.location.href = '/login';
@@ -120,8 +123,11 @@
 
   /* ── Connectivity ── */
   function setConnected(ok) {
-    $('conn-dot').className = 'dot ' + (ok ? 'dot-green' : 'dot-red');
-    $('conn-dot').title = ok ? 'Connected to qBittorrent' : 'Disconnected';
+    const el = $('conn-dot');
+    if (el) {
+      el.className = 'dot ' + (ok ? 'dot-green' : 'dot-red');
+      el.title = ok ? 'Connected to qBittorrent' : 'Disconnected';
+    }
   }
 
   function setSpinning(v) {
@@ -129,8 +135,11 @@
   }
 
   function showError(msg) {
-    $('error-bar').style.display = msg ? 'block' : 'none';
-    $('error-bar').textContent = msg;
+    const el = $('error-bar');
+    if (el) {
+      el.style.display = msg ? 'block' : 'none';
+      el.textContent = msg;
+    }
   }
 
   /* ── Fetch ── */
@@ -205,8 +214,10 @@
 
   /* ── Stats bar ── */
   function updateStats(t) {
-    $('s-dl').textContent = fmtSpeed(t.dl_info_speed);
-    $('s-ul').textContent = fmtSpeed(t.up_info_speed);
+    const dlEl = $('s-dl');
+    const ulEl = $('s-ul');
+    if (dlEl) dlEl.textContent = fmtSpeed(t.dl_info_speed);
+    if (ulEl) ulEl.textContent = fmtSpeed(t.up_info_speed);
     computeCounts();
   }
 
@@ -250,6 +261,7 @@
     const list = getSorted(getFiltered());
     const tbody = $('tbody');
     const empty = $('empty');
+    if (!tbody || !empty) return;
 
     if (!list.length) {
       tbody.innerHTML = '';
@@ -322,7 +334,8 @@
     countdown = currentInterval;
     countdownTimer = setInterval(() => {
       countdown--;
-      $('refresh-info').textContent = 'Refresh in ' + countdown + 's';
+      const ri = $('refresh-info');
+      if (ri) ri.textContent = 'Refresh in ' + countdown + 's';
       if (countdown <= 0) countdown = currentInterval;
     }, 1000);
     refreshTimer = setInterval(() => {
