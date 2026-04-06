@@ -14,7 +14,9 @@ RUN python -m venv /venv
 ENV PATH="/venv/bin:$PATH"
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --no-compile -r requirements.txt \
+    && find /venv -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true \
+    && pip uninstall -y pip setuptools 2>/dev/null; true
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────
 FROM python:3.12-slim
@@ -27,7 +29,9 @@ WORKDIR /app
 COPY --from=builder /venv /venv
 ENV PATH="/venv/bin:$PATH"
 
-COPY . .
+COPY app/ ./app/
+COPY templates/ ./templates/
+COPY static/ ./static/
 
 RUN mkdir -p /app/data && chown -R appuser:appuser /app
 
