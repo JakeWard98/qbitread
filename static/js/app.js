@@ -96,6 +96,16 @@
         $('btn-admin').style.display = '';
       }
       applyRoleVisibility();
+
+      // Show weak password warning if flagged at login
+      if (sessionStorage.getItem('password_weak') === '1') {
+        const bar = $('error-bar');
+        bar.innerHTML = '<div class="pw-warn-banner">Your password does not meet current security requirements. Please contact an admin to update it. <button class="btn-ghost pw-warn-dismiss">Dismiss</button></div>';
+        bar.querySelector('.pw-warn-dismiss').addEventListener('click', () => {
+          bar.innerHTML = '';
+          sessionStorage.removeItem('password_weak');
+        });
+      }
     } catch {
       window.location.href = '/login';
     }

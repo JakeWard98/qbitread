@@ -2,6 +2,16 @@
   const form = document.getElementById('setup-form');
   const errorEl = document.getElementById('setup-error');
 
+  function validatePassword(pw) {
+    const errors = [];
+    if (pw.length < 8) errors.push('at least 8 characters');
+    if (!/[A-Z]/.test(pw)) errors.push('1 uppercase letter');
+    if (!/[a-z]/.test(pw)) errors.push('1 lowercase letter');
+    if (!/\d/.test(pw)) errors.push('1 number');
+    if (!/[^a-zA-Z0-9]/.test(pw)) errors.push('1 special character');
+    return { valid: errors.length === 0, errors };
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorEl.textContent = '';
@@ -15,8 +25,9 @@
       return;
     }
 
-    if (password.length < 6) {
-      errorEl.textContent = 'Password must be at least 6 characters.';
+    const check = validatePassword(password);
+    if (!check.valid) {
+      errorEl.textContent = 'Password must contain: ' + check.errors.join(', ') + '.';
       return;
     }
 
