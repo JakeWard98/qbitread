@@ -1,6 +1,4 @@
 from fastapi import Depends, HTTPException, Request
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.auth.security import verify_jwt
@@ -9,7 +7,7 @@ from app.database import get_db
 
 async def get_current_user(
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db=Depends(get_db),
 ) -> User:
     token = request.cookies.get("access_token")
     if not token:
@@ -17,8 +15,10 @@ async def get_current_user(
     payload = verify_jwt(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    result = await db.execute(select(User).where(User.username == payload["sub"]))
-    user = result.scalar_one_or_none()
+    cursor = await db.execute(
+        "SELECT * FROM users WHERE username = ?", (payload["sub"],)
+    )
+    user = User.from_row(await cursor.fetchone())
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
