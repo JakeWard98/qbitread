@@ -1,9 +1,13 @@
 .git
 .gitignore
 .env
+.env.example
 __pycache__
 *.pyc
 .venv
 .mypy_cache
 .ruff_cache
 *.md
+Dockerfile
+docker-compose*.yml
+.github/
