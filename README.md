@@ -1,80 +1,104 @@
 # qBitRead
 
-A lightweight Docker web app that monitors your qBittorrent instance. Dark, minimal dashboard showing all torrents with live speeds, progress, and ETA.
+A lightweight, read-only Docker web app for monitoring your qBittorrent instance. Dark, minimal dashboard with live speeds, progress, ETA, and multi-user authentication.
+
+> **Disclaimer:** This is a personal project built for my own homelab, completely written with Claude AI. It is available for anyone to use, but **use at your own risk**. No warranties or guarantees are provided.
 
 ## Features
 
-- Real-time torrent monitoring (5s polling)
-- Filter by status: All / Downloading / Seeding / Stalled / Paused
-- Sortable columns, search
-- User authentication with admin role
-- Admin panel to create/delete users and change passwords
-- Password policy enforcement (8+ chars, uppercase, lowercase, digit, special character)
-- Weak password detection — existing users with grandfathered passwords see a dashboard banner
-- First-run setup wizard (no config file editing required)
-- Security: CSRF protection, rate-limited login, security headers, HTTP-only JWT cookies
-- qBittorrent credentials never exposed to the browser
+- **Real-time monitoring** — dashboard polls every 5 seconds with automatic backoff on errors
+- **Filtering** — All, Downloading, Seeding, Completed, Running, Stopped, Active, Stalled (with live counts)
+- **Sortable columns** — Name, Size, Progress, DL/UL Speed, ETA, Ratio, Status
+- **Search** — instant case-insensitive filtering by torrent name
+- **Multi-user auth** — JWT-based login with admin, manager, and user roles
+- **Admin panel** — create/delete users, change passwords, view qBittorrent connection status
+- **Password policy** — 8+ characters, uppercase, lowercase, digit, special character required
+- **Weak password detection** — grandfathered passwords flagged with a dashboard banner
+- **Setup wizard** — guided first-run setup if no admin password is configured
+- **Mobile responsive** — sort dropdown and flexible layouts for smaller screens
+- **Read-only by design** — monitors torrents only; never modifies, adds, or deletes them
+- **Credential isolation** — qBittorrent credentials never leave the server
+
+## Architecture
+
+```
+Browser  ──>  FastAPI (auth + proxy)  ──>  qBittorrent API
+              credentials stay here
+```
+
+The backend is the only component that communicates with qBittorrent. The browser never talks to qBittorrent directly — all requests are proxied through authenticated FastAPI endpoints.
 
 ## Quick Start
 
 ```bash
 # Clone and configure
+git clone https://github.com/JakeWard98/qbitread.git
+cd qbitread
 cp .env.example .env
 # Edit .env with your qBittorrent details
 
-# (Recommended) Set admin credentials in .env:
-#   ADMIN_USERNAME=admin
-#   ADMIN_PASSWORD=your-password
-#
-# Or skip them — a setup wizard will guide you on first visit.
-
-# Build and run
+# Run with Docker
 docker compose up -d
 
 # Open http://localhost:8112
 ```
 
-## Docker Image Tags
+If you set `ADMIN_PASSWORD` in `.env`, the admin account is created automatically. Otherwise, a setup wizard guides you through it on first visit.
 
-The image is published to GitHub Container Registry at `ghcr.io/jakeward98/qbitread` and supports both `linux/amd64` and `linux/arm64` platforms.
+## Docker Image
+
+Published to GitHub Container Registry with `linux/amd64` and `linux/arm64` support.
 
 ```bash
 docker pull ghcr.io/jakeward98/qbitread:latest
 ```
 
-**Stable releases** (e.g. GitHub release `v1.2.3`) produce these tags:
+### Tags
+
+**Stable releases** (e.g. `v1.2.3`):
 
 | Tag | Description |
 |-----|-------------|
 | `1.2.3` | Exact version — pinned, never changes |
-| `1.2` | Latest patch within the `1.2.x` line |
-| `1` | Latest minor + patch within the `1.x.x` line |
+| `1.2` | Latest patch in the `1.2.x` line |
+| `1` | Latest minor + patch in the `1.x.x` line |
 | `latest` | Most recent stable release |
 
-**Pre-releases** (e.g. GitHub release `v1.2.3-beta.1`) produce these tags:
+**Pre-releases** (e.g. `v1.2.3-beta.1`):
 
 | Tag | Description |
 |-----|-------------|
 | `1.2.3-beta.1` | Exact pre-release version |
 | `beta` | Most recent pre-release |
 
-Pre-releases do **not** update `latest`, so stable users are unaffected.
+Pre-releases do **not** update `latest`.
 
 ## Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `QBIT_HOST` | No | `http://localhost:8080` | qBittorrent Web UI URL |
+| `QBIT_HOST` | Yes | — | qBittorrent Web UI URL (e.g. `http://qbit:8080`) |
 | `QBIT_USERNAME` | No | `admin` | qBittorrent username |
 | `QBIT_PASSWORD` | Yes | — | qBittorrent password |
-| `SECRET_KEY` | No | auto-generated | Random string for JWT signing. Auto-generated and persisted to the data volume if not set. |
-| `ADMIN_USERNAME` | No | `admin` | **Recommended.** Bootstrap admin username. |
-| `ADMIN_PASSWORD` | No | — | **Recommended.** Bootstrap admin password (must meet password policy: 8+ chars, uppercase, lowercase, digit, special char). If omitted, a setup wizard is shown on first run. |
-| `SECURE_COOKIES` | No | `false` | Set to `true` if behind an HTTPS reverse proxy |
+| `SECRET_KEY` | No | auto-generated | JWT signing key. Auto-generated and persisted to the data volume if not set |
+| `ADMIN_USERNAME` | No | `admin` | Bootstrap admin username |
+| `ADMIN_PASSWORD` | No | — | Bootstrap admin password. If omitted, a setup wizard runs on first visit |
+| `SECURE_COOKIES` | No | `false` | Set to `true` behind an HTTPS reverse proxy |
+| `QBIT_BROWSER_HOST` | No | — | Browser-accessible qBittorrent URL (used for the browser auth feature) |
 
-## Production: HTTPS with Reverse Proxy
+## User Roles
 
-Do not expose port 8000 directly. Use a reverse proxy for TLS termination.
+| Capability | User | Manager | Admin |
+|------------|:----:|:-------:|:-----:|
+| View dashboard | Yes | Yes | Yes |
+| View ratio column | No | Yes | Yes |
+| Manage users | No | No | Yes |
+| View qBit connection status | No | No | Yes |
+| Retry qBit login | No | No | Yes |
+
+## Reverse Proxy (HTTPS)
+
+Do not expose port 8000 directly. Use a reverse proxy for TLS termination and set `SECURE_COOKIES=true`.
 
 **Caddy** (recommended — automatic HTTPS):
 
@@ -104,27 +128,45 @@ server {
 }
 ```
 
-When using HTTPS, set `SECURE_COOKIES=true` in your environment.
-
 ## Security
 
-- JWT tokens stored in HTTP-only, SameSite=Strict cookies (Secure flag when `SECURE_COOKIES=true`)
-- CSRF double-submit cookie protection on all mutating API requests
-- Login rate limiting (5 attempts/min per IP)
-- Password policy: 8+ characters, uppercase, lowercase, digit, and special character required
-- Grandfathered weak passwords are flagged at login; admins can update them from the admin panel
-- Security headers: CSP, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy
-- qBittorrent credentials stay server-side only
-- Container runs as non-root user
-- SQLite database persisted in Docker volume
-- SECRET_KEY auto-generated and persisted if not provided
+- **JWT cookies** — HTTP-only, SameSite=Strict, Secure flag when behind HTTPS
+- **CSRF protection** — double-submit cookie pattern on all mutating requests
+- **Rate limiting** — 5 login attempts per minute per IP
+- **Password policy** — enforced on all new accounts; weak existing passwords are flagged
+- **Security headers** — CSP, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy
+- **Credential isolation** — qBittorrent credentials exist only on the server, never sent to the browser
+- **Non-root container** — runs as `appuser` with no login shell
+- **Auto-generated secrets** — `SECRET_KEY` created and persisted on first run if not provided
+
+## Troubleshooting
+
+**"Cannot connect to qBittorrent"**
+Check that `QBIT_HOST` is reachable from the container. If using Docker, use the container/service name (e.g. `http://qbittorrent:8080`), not `localhost`.
+
+**"IP Banned"**
+qBittorrent bans IPs after too many failed login attempts. qBitRead detects this and pauses retries for 15 minutes. Verify your `QBIT_USERNAME` and `QBIT_PASSWORD` are correct, then use the admin panel's "Retry Login" button.
+
+**Dashboard not loading**
+Check browser console for errors. Ensure your reverse proxy is forwarding headers correctly and that `SECURE_COOKIES` matches your setup (true for HTTPS, false for HTTP).
 
 ## Development
 
 ```bash
-# Without Docker
 pip install -r requirements.txt
-export QBIT_PASSWORD=changeme ADMIN_PASSWORD=admin SECURE_COOKIES=false
+export QBIT_HOST=http://localhost:8080
+export QBIT_PASSWORD=changeme
+export ADMIN_PASSWORD=admin
+export SECURE_COOKIES=false
 uvicorn app.main:app --reload --port 8000
-# SECRET_KEY is auto-generated if not set
 ```
+
+## Tech Stack
+
+- **Backend** — Python 3.12, FastAPI, Uvicorn
+- **Frontend** — Vanilla JavaScript, HTML5, CSS3 (no frameworks, no build step)
+- **Database** — SQLite via SQLAlchemy (async) + aiosqlite
+- **HTTP Client** — httpx (async)
+- **Auth** — PyJWT + bcrypt
+- **Container** — Docker multi-stage build
+- **CI/CD** — GitHub Actions to GitHub Container Registry
