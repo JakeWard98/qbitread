@@ -21,6 +21,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # NOTE: 'unsafe-inline' is required for style-src because templates and JS
         # use inline style attributes extensively. Removing it requires migrating
         # all inline styles to CSS classes — tracked as a future improvement.
+        # NOTE: script-src 'self' intentionally blocks proxy-injected inline scripts
+        # (e.g. Cloudflare Rocket Loader). Templates use data-cfasync="false" and
+        # DOMContentLoaded in JS to stay resilient when behind such proxies.
         csp = (
             "default-src 'self'; "
             "style-src 'self' 'unsafe-inline'; "

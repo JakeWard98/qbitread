@@ -1,7 +1,4 @@
 (function () {
-  const form = document.getElementById('setup-form');
-  const errorEl = document.getElementById('setup-error');
-
   function validatePassword(pw) {
     const errors = [];
     if (pw.length < 8) errors.push('at least 8 characters');
@@ -12,53 +9,65 @@
     return { valid: errors.length === 0, errors };
   }
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errorEl.textContent = '';
+  function init() {
+    const form = document.getElementById('setup-form');
+    const errorEl = document.getElementById('setup-error');
+    if (!form || !errorEl) return;
 
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm-password').value;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
 
-    if (!username || !password) {
-      errorEl.textContent = 'Please enter username and password.';
-      return;
-    }
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirm-password').value;
 
-    const check = validatePassword(password);
-    if (!check.valid) {
-      errorEl.textContent = 'Password must contain: ' + check.errors.join(', ') + '.';
-      return;
-    }
+      if (!username || !password) {
+        errorEl.textContent = 'Please enter username and password.';
+        return;
+      }
 
-    if (password !== confirmPassword) {
-      errorEl.textContent = 'Passwords do not match.';
-      return;
-    }
+      const check = validatePassword(password);
+      if (!check.valid) {
+        errorEl.textContent = 'Password must contain: ' + check.errors.join(', ') + '.';
+        return;
+      }
 
-    try {
-      const resp = await fetch('/api/auth/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
+      if (password !== confirmPassword) {
+        errorEl.textContent = 'Passwords do not match.';
+        return;
+      }
 
-      const data = await resp.json();
+      try {
+        const resp = await fetch('/api/auth/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
 
-      if (resp.status === 403) {
-        // Setup already completed
+        const data = await resp.json();
+
+        if (resp.status === 403) {
+          // Setup already completed
+          window.location.href = '/login';
+          return;
+        }
+
+        if (!resp.ok) {
+          errorEl.textContent = data.detail || 'Setup failed.';
+          return;
+        }
+
         window.location.href = '/login';
-        return;
+      } catch {
+        errorEl.textContent = 'Network error. Please try again.';
       }
+    });
+  }
 
-      if (!resp.ok) {
-        errorEl.textContent = data.detail || 'Setup failed.';
-        return;
-      }
-
-      window.location.href = '/login';
-    } catch {
-      errorEl.textContent = 'Network error. Please try again.';
-    }
-  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
