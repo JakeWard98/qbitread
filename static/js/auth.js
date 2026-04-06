@@ -33,6 +33,9 @@
         return;
       }
 
+      if (data.password_weak) {
+        sessionStorage.setItem('password_weak', '1');
+      }
       window.location.href = '/';
     } catch {
       errorEl.textContent = 'Network error. Please try again.';

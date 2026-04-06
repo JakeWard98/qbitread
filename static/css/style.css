@@ -98,7 +98,8 @@ td { padding: 8px 8px; vertical-align: middle; }
 
 /* empty / error */
 #empty { display: none; text-align: center; padding: 50px; color: var(--muted); }
-#error-bar { display: none; background: rgba(224,92,92,.12); border-bottom: 1px solid rgba(224,92,92,.2); color: var(--red); padding: 8px 20px; font-size: 12px; }
+#error-bar { background: rgba(224,92,92,.12); border-bottom: 1px solid rgba(224,92,92,.2); color: var(--red); padding: 8px 20px; font-size: 12px; }
+#error-bar:empty { display: none; }
 
 /* spinner */
 .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; display: none; }
@@ -130,3 +131,20 @@ td { padding: 8px 8px; vertical-align: middle; }
 .admin-table .badge-admin { background: rgba(79,142,247,.15); color: var(--accent); }
 .admin-table .badge-manager { background: rgba(62,207,110,.12); color: var(--green); }
 .admin-table .badge-user { background: rgba(102,102,102,.15); color: var(--muted); }
+
+/* ── Password policy tooltip ── */
+.pw-field-wrap { position: relative; }
+.pw-tooltip-trigger { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--border); color: var(--text); font-size: 10px; font-weight: 700; cursor: help; position: relative; vertical-align: middle; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+.pw-tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: #222; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; font-size: 11px; font-weight: 400; color: var(--text); white-space: nowrap; z-index: 100; line-height: 1.6; text-transform: none; letter-spacing: 0; }
+.pw-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #222; }
+.pw-tooltip-trigger:hover .pw-tooltip,
+.pw-tooltip-trigger:focus .pw-tooltip { display: block; }
+
+/* ── Password status badges ── */
+.badge-pw-ok { background: rgba(62,207,110,.12); color: var(--green); }
+.badge-pw-weak { background: rgba(224,92,92,.12); color: var(--red); }
+
+/* ── Weak password warning banner ── */
+.pw-warn-banner { display: flex; align-items: center; gap: 12px; background: rgba(245,197,66,.1); border-bottom: 1px solid rgba(245,197,66,.2); color: var(--yellow); padding: 10px 20px; font-size: 12px; }
+.pw-warn-banner .btn-ghost { font-size: 11px; padding: 3px 8px; color: var(--yellow); border-color: rgba(245,197,66,.3); }
+.pw-warn-banner .btn-ghost:hover { border-color: var(--yellow); }

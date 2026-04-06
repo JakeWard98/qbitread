@@ -50,11 +50,27 @@ async def _migrate_is_admin_to_role(conn):
     logger.info("Users table migration complete")
 
 
+async def _migrate_add_password_meets_policy(conn):
+    """Add password_meets_policy column to existing users table."""
+    result = await conn.execute(text("PRAGMA table_info(users)"))
+    columns = {row[1] for row in result.fetchall()}
+
+    if "password_meets_policy" in columns:
+        return  # Already migrated
+
+    logger.info("Adding password_meets_policy column to users table")
+    await conn.execute(text(
+        "ALTER TABLE users ADD COLUMN password_meets_policy BOOLEAN NOT NULL DEFAULT 0"
+    ))
+    logger.info("password_meets_policy column added (existing users default to 0)")
+
+
 async def init_db():
     from app.auth.models import User  # noqa: F401
     async with engine.begin() as conn:
-        # Run migration before create_all (so create_all sees the new schema)
+        # Run migrations before create_all (so create_all sees the new schema)
         await _migrate_is_admin_to_role(conn)
+        await _migrate_add_password_meets_policy(conn)
         await conn.run_sync(Base.metadata.create_all)
 
 

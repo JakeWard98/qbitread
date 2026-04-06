@@ -8,6 +8,16 @@
     return m ? m[1] : '';
   }
 
+  function validatePassword(pw) {
+    const errors = [];
+    if (pw.length < 8) errors.push('at least 8 characters');
+    if (!/[A-Z]/.test(pw)) errors.push('1 uppercase letter');
+    if (!/[a-z]/.test(pw)) errors.push('1 lowercase letter');
+    if (!/\d/.test(pw)) errors.push('1 number');
+    if (!/[^a-zA-Z0-9]/.test(pw)) errors.push('1 special character');
+    return { valid: errors.length === 0, errors };
+  }
+
   async function checkAdmin() {
     try {
       const resp = await fetch('/api/auth/me');
@@ -48,11 +58,15 @@
     tbody.innerHTML = users
       .map((u) => {
         const created = new Date(u.created_at).toLocaleDateString();
+        const pwStatus = u.password_meets_policy
+          ? '<span class="badge badge-pw-ok">OK</span>'
+          : '<span class="badge badge-pw-weak" title="Password does not meet current security requirements">Weak</span>';
         return (
           '<tr>' +
           '<td>' + escHtml(u.username) + '</td>' +
           '<td><span class="badge ' + roleBadgeClass(u.role) + '">' + roleLabel(u.role) + '</span></td>' +
           '<td style="color:var(--muted)">' + created + '</td>' +
+          '<td>' + pwStatus + ' <button class="btn-ghost btn-chpw" data-id="' + u.id + '" data-name="' + escHtml(u.username) + '">Change</button></td>' +
           '<td><button class="btn-danger btn-del" data-id="' + u.id + '">Delete</button></td>' +
           '</tr>'
         );
@@ -61,6 +75,10 @@
 
     tbody.querySelectorAll('.btn-del').forEach((btn) => {
       btn.addEventListener('click', () => deleteUser(parseInt(btn.dataset.id)));
+    });
+
+    tbody.querySelectorAll('.btn-chpw').forEach((btn) => {
+      btn.addEventListener('click', () => showChangePassword(parseInt(btn.dataset.id), btn.dataset.name));
     });
   }
 
@@ -89,6 +107,77 @@
     }
   }
 
+  /* ── Change Password ── */
+  function showChangePassword(userId, username) {
+    // Remove any existing change-password form
+    const existing = document.getElementById('chpw-form-' + userId);
+    if (existing) { existing.remove(); return; }
+
+    document.querySelectorAll('.chpw-inline').forEach((el) => el.remove());
+
+    const row = document.createElement('tr');
+    row.className = 'chpw-inline';
+    row.id = 'chpw-form-' + userId;
+    row.innerHTML =
+      '<td colspan="5" style="padding:10px 8px">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+      '<span style="font-size:12px;color:var(--muted)">New password for <strong style="color:var(--text)">' + escHtml(username) + '</strong>:</span>' +
+      '<input type="password" class="chpw-input" placeholder="min 8 chars" style="background:#1e1e1e;border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 8px;font-size:12px;width:180px;outline:none">' +
+      '<button class="btn-primary chpw-save" style="font-size:11px;padding:6px 12px">Save</button>' +
+      '<button class="btn-ghost chpw-cancel" style="font-size:11px;padding:6px 10px">Cancel</button>' +
+      '<span class="chpw-msg" style="font-size:12px;min-height:16px"></span>' +
+      '</div>' +
+      '</td>';
+
+    // Insert after the user's row
+    const userRow = tbody.querySelector('.btn-chpw[data-id="' + userId + '"]').closest('tr');
+    userRow.after(row);
+
+    const input = row.querySelector('.chpw-input');
+    const msg = row.querySelector('.chpw-msg');
+    input.focus();
+
+    row.querySelector('.chpw-cancel').addEventListener('click', () => row.remove());
+
+    row.querySelector('.chpw-save').addEventListener('click', async () => {
+      msg.textContent = '';
+      msg.style.color = 'var(--red)';
+      const pw = input.value;
+
+      if (!pw) { msg.textContent = 'Password is required.'; return; }
+
+      const check = validatePassword(pw);
+      if (!check.valid) {
+        msg.textContent = 'Missing: ' + check.errors.join(', ');
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/auth/users/' + userId + '/password', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken(),
+          },
+          body: JSON.stringify({ password: pw }),
+        });
+
+        if (!resp.ok) {
+          const data = await resp.json();
+          msg.textContent = data.detail || 'Failed to change password.';
+          return;
+        }
+
+        msg.style.color = 'var(--green)';
+        msg.textContent = 'Password updated.';
+        setTimeout(() => { row.remove(); loadUsers(); }, 1000);
+      } catch {
+        msg.textContent = 'Network error.';
+      }
+    });
+  }
+
+  /* ── Create User ── */
   $('btn-create').addEventListener('click', async () => {
     errorEl.textContent = '';
     const username = $('new-username').value.trim();
@@ -99,8 +188,10 @@
       errorEl.textContent = 'Username and password are required.';
       return;
     }
-    if (password.length < 6) {
-      errorEl.textContent = 'Password must be at least 6 characters.';
+
+    const check = validatePassword(password);
+    if (!check.valid) {
+      errorEl.textContent = 'Password must contain: ' + check.errors.join(', ') + '.';
       return;
     }
 

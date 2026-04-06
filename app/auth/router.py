@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User
-from app.auth.schemas import LoginRequest, UserCreate, UserOut
+from app.auth.schemas import LoginRequest, PasswordUpdate, UserCreate, UserOut, password_meets_policy
 from app.auth.security import create_jwt, generate_csrf_token, hash_password, verify_password
 from app.config import settings
 from app.database import get_db
@@ -26,6 +26,12 @@ async def login(
     if not user or not verify_password(body.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    # Check password against current policy and update flag
+    meets_policy = password_meets_policy(body.password)
+    if user.password_meets_policy != meets_policy:
+        user.password_meets_policy = meets_policy
+        await db.commit()
+
     token = create_jwt(user.username, user.role)
     csrf_token = generate_csrf_token()
 
@@ -45,7 +51,13 @@ async def login(
         samesite="strict",
         max_age=settings.JWT_EXPIRY_MINUTES * 60,
     )
-    return {"message": "OK", "is_admin": user.is_admin, "role": user.role, "username": user.username}
+    return {
+        "message": "OK",
+        "is_admin": user.is_admin,
+        "role": user.role,
+        "username": user.username,
+        "password_weak": not meets_policy,
+    }
 
 
 @router.post("/setup", status_code=201)
@@ -61,6 +73,7 @@ async def initial_setup(
         username=body.username,
         password=hash_password(body.password),
         role="admin",
+        password_meets_policy=True,
     )
     db.add(user)
     try:
@@ -105,11 +118,30 @@ async def create_user(
         username=body.username,
         password=hash_password(body.password),
         role=body.role,
+        password_meets_policy=True,
     )
     db.add(user)
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.put("/users/{user_id}/password", status_code=200)
+async def change_user_password(
+    user_id: int,
+    body: PasswordUpdate,
+    _: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password = hash_password(body.password)
+    user.password_meets_policy = True
+    await db.commit()
+    return {"message": "Password updated"}
 
 
 @router.delete("/users/{user_id}", status_code=204)
