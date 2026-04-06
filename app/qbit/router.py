@@ -23,7 +23,7 @@ async def get_torrents(
         raw = await client.get_torrents()
     except Exception as e:
         logger.error("Failed to fetch torrents: %s", e)
-        raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=502, detail="Failed to communicate with qBittorrent")
     return [TorrentInfo(**t) for t in raw]
 
 
@@ -37,7 +37,7 @@ async def get_transfer(
         raw = await client.get_transfer_info()
     except Exception as e:
         logger.error("Failed to fetch transfer info: %s", e)
-        raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=502, detail="Failed to communicate with qBittorrent")
     return TransferInfo(**raw)
 
 

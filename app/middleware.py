@@ -1,3 +1,6 @@
+import asyncio
+import hmac
+import ipaddress
 import time
 from collections import defaultdict
 
@@ -15,6 +18,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        # NOTE: 'unsafe-inline' is required for style-src because templates and JS
+        # use inline style attributes extensively. Removing it requires migrating
+        # all inline styles to CSS classes — tracked as a future improvement.
         csp = (
             "default-src 'self'; "
             "style-src 'self' 'unsafe-inline'; "
@@ -40,12 +46,30 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.limit = limit if limit is not None else settings.LOGIN_RATE_LIMIT
         self.window = window
         self._hits: dict[str, list[float]] = defaultdict(list)
+        self._lock = asyncio.Lock()
 
     def _get_client_ip(self, request: Request) -> str:
         forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
+        client_ip = request.client.host if request.client else "unknown"
+        if forwarded and self._is_trusted_proxy(client_ip):
             return forwarded.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+        return client_ip
+
+    @staticmethod
+    def _is_trusted_proxy(ip: str) -> bool:
+        if not settings.TRUSTED_PROXIES:
+            return True  # Backward compat: trust all if not configured
+        try:
+            addr = ipaddress.ip_address(ip)
+            for proxy in settings.TRUSTED_PROXIES:
+                if "/" in proxy:
+                    if addr in ipaddress.ip_network(proxy, strict=False):
+                        return True
+                elif ip == proxy:
+                    return True
+        except ValueError:
+            pass
+        return False
 
     def _clean(self, ip: str, now: float):
         cutoff = now - self.window
@@ -55,15 +79,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path == self.path and request.method == "POST":
             ip = self._get_client_ip(request)
             now = time.time()
-            self._clean(ip, now)
 
-            if len(self._hits[ip]) >= self.limit:
-                return Response(
-                    content='{"detail":"Too many login attempts. Try again later."}',
-                    status_code=429,
-                    media_type="application/json",
-                )
-            self._hits[ip].append(now)
+            async with self._lock:
+                self._clean(ip, now)
+                if len(self._hits[ip]) >= self.limit:
+                    return Response(
+                        content='{"detail":"Too many login attempts. Try again later."}',
+                        status_code=429,
+                        media_type="application/json",
+                    )
+                self._hits[ip].append(now)
 
         return await call_next(request)
 
@@ -88,7 +113,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         cookie_token = request.cookies.get("csrf_token")
         header_token = request.headers.get("x-csrf-token")
 
-        if not cookie_token or not header_token or cookie_token != header_token:
+        if not cookie_token or not header_token or not hmac.compare_digest(cookie_token, header_token):
             return Response(
                 content='{"detail":"CSRF validation failed"}',
                 status_code=403,

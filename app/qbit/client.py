@@ -118,6 +118,11 @@ class QBitClient:
             resp = await self._client.get(path, params=params)
 
         resp.raise_for_status()
+        content_type = resp.headers.get("content-type", "")
+        if "application/json" not in content_type:
+            raise ConnectionError(
+                f"Unexpected Content-Type from qBittorrent: {content_type}"
+            )
         return resp.json()
 
     def get_status(self) -> dict:

@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.auth.models import User
 from app.auth.router import router as auth_router
+from app.auth.schemas import password_meets_policy
 from app.auth.security import hash_password, verify_jwt
 from app.config import settings
 from app.database import get_connection, init_db
@@ -45,6 +46,13 @@ async def bootstrap_admin():
         logger.info("No ADMIN_PASSWORD set — setup wizard will be available on first visit")
         return
 
+    if not password_meets_policy(settings.ADMIN_PASSWORD):
+        logger.warning(
+            "ADMIN_PASSWORD does not meet password policy "
+            "(8+ chars, uppercase, lowercase, digit, special). "
+            "Consider setting a stronger password."
+        )
+
     async with get_connection() as db:
         cursor = await db.execute(
             "SELECT * FROM users WHERE username = ?", (settings.ADMIN_USERNAME,)
@@ -55,7 +63,8 @@ async def bootstrap_admin():
             await db.execute(
                 "INSERT INTO users (username, password, role, created_at, password_meets_policy) "
                 "VALUES (?, ?, ?, ?, ?)",
-                (settings.ADMIN_USERNAME, hash_password(settings.ADMIN_PASSWORD), "admin", now, True),
+                (settings.ADMIN_USERNAME, hash_password(settings.ADMIN_PASSWORD), "admin", now,
+             password_meets_policy(settings.ADMIN_PASSWORD)),
             )
             await db.commit()
             logger.info("Admin user '%s' created", settings.ADMIN_USERNAME)

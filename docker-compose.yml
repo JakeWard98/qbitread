@@ -4,6 +4,7 @@ services:
     container_name: qbitread
     restart: unless-stopped
     ports:
+      # To restrict to localhost only: "127.0.0.1:8112:8000"
       - "8112:8000"
     environment:
       - QBIT_HOST=${QBIT_HOST:?Set QBIT_HOST in .env}

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User
 from app.auth.schemas import LoginRequest, PasswordUpdate, UserCreate, UserOut, password_meets_policy
-from app.auth.security import create_jwt, generate_csrf_token, hash_password, verify_password
+from app.auth.security import create_jwt, generate_csrf_token, get_dummy_hash, hash_password, verify_password
 from app.config import settings
 from app.database import get_db
 
@@ -25,7 +25,10 @@ async def login(
     )
     row = await cursor.fetchone()
     user = User.from_row(row)
-    if not user or not verify_password(body.password, user.password):
+    # Always run bcrypt comparison to prevent timing-based user enumeration
+    password_hash = user.password if user else get_dummy_hash()
+    password_valid = verify_password(body.password, password_hash)
+    if not user or not password_valid:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     meets_policy = password_meets_policy(body.password)
@@ -121,17 +124,18 @@ async def create_user(
         raise HTTPException(status_code=409, detail="Username already exists")
 
     now = datetime.now(timezone.utc).isoformat()
+    hashed = hash_password(body.password)
     cursor = await db.execute(
         "INSERT INTO users (username, password, role, created_at, password_meets_policy) "
         "VALUES (?, ?, ?, ?, ?)",
-        (body.username, hash_password(body.password), body.role, now, True),
+        (body.username, hashed, body.role, now, True),
     )
     await db.commit()
 
     return User(
         id=cursor.lastrowid,
         username=body.username,
-        password=hash_password(body.password),
+        password=hashed,
         role=body.role,
         created_at=datetime.fromisoformat(now),
         password_meets_policy=True,

@@ -336,7 +336,7 @@
     // Create sandboxed hidden iframe (no allow-same-origin to protect our cookies)
     const iframe = document.createElement('iframe');
     iframe.name = 'qbit-auth-frame';
-    iframe.sandbox = 'allow-forms allow-scripts';
+    iframe.sandbox = 'allow-forms';
     iframe.style.display = 'none';
     document.body.appendChild(iframe);
 
