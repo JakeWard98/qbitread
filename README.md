@@ -171,7 +171,7 @@ uvicorn app.main:app --reload --port 8000
 
 - **Backend** — Python 3.12, FastAPI, Uvicorn
 - **Frontend** — Vanilla JavaScript, HTML5, CSS3 (no frameworks, no build step)
-- **Database** — SQLite via SQLAlchemy (async) + aiosqlite
+- **Database** — SQLite via aiosqlite (raw async queries, no ORM)
 - **HTTP Client** — httpx (async)
 - **Auth** — PyJWT + bcrypt
 - **Container** — Docker multi-stage build

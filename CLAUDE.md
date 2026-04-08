@@ -12,7 +12,7 @@ Self-hosted qBittorrent users need a simple, secure way to glance at torrent sta
 
 - **Backend**: Python 3.12, FastAPI, Uvicorn (ASGI)
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3 (no frameworks)
-- **Database**: SQLite via SQLAlchemy (async) + aiosqlite
+- **Database**: SQLite via aiosqlite (raw async queries, no ORM)
 - **HTTP Client**: httpx (async) for qBittorrent API calls
 - **Auth**: JWT (PyJWT) + bcrypt password hashing
 - **Container**: Docker (multi-stage build, non-root user)
@@ -24,10 +24,10 @@ Self-hosted qBittorrent users need a simple, secure way to glance at torrent sta
 app/                    # Backend (FastAPI)
   main.py               # App entry point, lifespan, page routes
   config.py             # Pydantic Settings (env var config)
-  database.py           # SQLAlchemy async engine, DB init
+  database.py           # aiosqlite connection, DB init, migrations
   middleware.py          # Security headers, CSRF, rate limiting
   auth/                 # Authentication module
-    models.py           # User SQLAlchemy model
+    models.py           # User dataclass model
     security.py         # JWT creation/verification, password hashing
     router.py           # Auth API endpoints
     schemas.py          # Pydantic request/response models
@@ -74,7 +74,7 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 
 - **Read-only**: The app monitors torrents. It does not add, pause, resume, or delete them. Do not add write operations to the qBittorrent API surface.
 - **Vanilla JS frontend**: No React, Vue, or other frameworks. Keep it simple — plain JavaScript with fetch() calls. No build step for frontend assets.
-- **Async everywhere**: All backend I/O is async (httpx, aiosqlite, SQLAlchemy async sessions). Do not introduce synchronous blocking calls.
+- **Async everywhere**: All backend I/O is async (httpx, aiosqlite). Do not introduce synchronous blocking calls.
 - **Dark minimal UI**: The interface uses CSS variables for theming. The design is intentionally sparse — no unnecessary visual complexity.
 - **Single-page feel**: Each page (dashboard, login, setup, admin) is a separate HTML template served by FastAPI, with JS handling dynamic behavior. Not a true SPA — no client-side routing.
 - **Pydantic for all validation**: Request/response schemas use Pydantic models. Config uses pydantic-settings.
