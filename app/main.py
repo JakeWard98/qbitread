@@ -104,6 +104,12 @@ class NoCacheStaticFiles(StaticFiles):
 
 app.mount("/static", NoCacheStaticFiles(directory="static"), name="static")
 
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/favicon.ico", media_type="image/x-icon")
+
+
 # API routers
 app.include_router(auth_router)
 app.include_router(qbit_router)
