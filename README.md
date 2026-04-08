@@ -6,7 +6,7 @@ A lightweight, read-only Docker web app for monitoring your qBittorrent instance
 
 ## Features
 
-- **Real-time monitoring** — dashboard polls every 5 seconds with automatic backoff on errors
+- **Real-time monitoring** — dashboard polls every 5 seconds, backing off up to 60 seconds on repeated errors and resetting on reconnect
 - **Filtering** — All, Downloading, Seeding, Completed, Running, Stopped, Active, Stalled (with live counts)
 - **Sortable columns** — Name, Size, Progress, DL/UL Speed, ETA, Ratio, Status
 - **Search** — instant case-insensitive filtering by torrent name
@@ -53,6 +53,8 @@ Published to GitHub Container Registry with `linux/amd64` and `linux/arm64` supp
 docker pull ghcr.io/jakeward98/qbitread:latest
 ```
 
+The `/app/data` volume holds two files: `qbitread.db` (SQLite database with all users) and `.secret_key` (auto-generated JWT signing key). Back up this volume before upgrading or migrating.
+
 ### Tags
 
 **Stable releases** (e.g. `v1.2.3`):
@@ -85,6 +87,9 @@ Pre-releases do **not** update `latest`.
 | `ADMIN_PASSWORD` | No | — | Bootstrap admin password. If omitted, a setup wizard runs on first visit |
 | `SECURE_COOKIES` | No | `false` | Set to `true` behind an HTTPS reverse proxy |
 | `QBIT_BROWSER_HOST` | No | — | Browser-accessible qBittorrent URL (used for the browser auth feature) |
+| `JWT_EXPIRY_MINUTES` | No | `720` | Session token lifetime in minutes (default: 12 hours) |
+| `LOGIN_RATE_LIMIT` | No | `5` | Max login attempts per minute per IP |
+| `TRUSTED_PROXIES` | No | — | Comma-separated list of trusted reverse proxy IPs (e.g. `10.0.0.1`). Ensures rate limiting counts the real client IP, not the proxy |
 
 ## User Roles
 
@@ -95,6 +100,8 @@ Pre-releases do **not** update `latest`.
 | Manage users | No | No | Yes |
 | View qBit connection status | No | No | Yes |
 | Retry qBit login | No | No | Yes |
+
+The Manager role exists to grant ratio visibility to trusted non-admin users without giving full admin access.
 
 ## Reverse Proxy (HTTPS)
 
@@ -127,6 +134,8 @@ server {
     }
 }
 ```
+
+If your reverse proxy runs on a different IP from the container, set `TRUSTED_PROXIES` to its IP so rate limiting uses the real client IP rather than the proxy IP.
 
 ## Security
 
