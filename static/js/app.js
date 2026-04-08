@@ -321,9 +321,32 @@
     if (mobileSort) {
       mobileSort.addEventListener('change', () => {
         sortCol = mobileSort.value;
-        sortDir = -1;
+        syncSortUi();
         render();
       });
+    }
+    const mobileSortDir = $('mobile-sort-dir');
+    if (mobileSortDir) {
+      mobileSortDir.addEventListener('click', () => {
+        sortDir *= -1;
+        syncSortUi();
+        render();
+      });
+    }
+    function syncSortUi() {
+      document.querySelectorAll('thead th').forEach((x) => x.classList.remove('sorted'));
+      const th = document.querySelector('thead th[data-col="' + sortCol + '"]');
+      if (th) {
+        th.classList.add('sorted');
+        const icon = th.querySelector('.sort-icon');
+        if (icon) icon.textContent = sortDir === -1 ? '\u2193' : '\u2191';
+      }
+      if (mobileSortDir) {
+        const desc = sortDir === -1;
+        mobileSortDir.textContent = desc ? '\u2193' : '\u2191';
+        mobileSortDir.setAttribute('aria-pressed', desc ? 'true' : 'false');
+        mobileSortDir.title = desc ? 'Descending' : 'Ascending';
+      }
     }
 
     /* ── Filter ── */

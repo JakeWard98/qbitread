@@ -10,8 +10,8 @@
   <header>
     <h1>q<span>Bit</span> Dashboard</h1>
     <div class="header-right">
-      <span class="dot dot-red" id="conn-dot" title="Connecting..."></span>
       <div class="spinner" id="spinner"></div>
+      <span class="dot dot-red" id="conn-dot" title="Connecting..."></span>
       <a href="/admin" class="btn-ghost" id="btn-admin" style="display:none">Users</a>
       <button class="btn-ghost" id="btn-logout">Logout</button>
       <button class="btn-primary" id="btn-refresh">Refresh</button>
@@ -36,16 +36,19 @@
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <span id="refresh-info"></span>
       <input id="search" type="text" placeholder="Search torrents...">
-      <select id="mobile-sort" class="mobile-sort">
-        <option value="dlspeed">Sort: DL Speed</option>
-        <option value="name">Sort: Name</option>
-        <option value="size">Sort: Size</option>
-        <option value="progress">Sort: Progress</option>
-        <option value="upspeed">Sort: UL Speed</option>
-        <option value="eta">Sort: ETA</option>
-        <option value="ratio">Sort: Ratio</option>
-        <option value="state">Sort: Status</option>
-      </select>
+      <div class="mobile-sort-row">
+        <select id="mobile-sort" class="mobile-sort">
+          <option value="dlspeed">Sort: DL Speed</option>
+          <option value="name">Sort: Name</option>
+          <option value="size">Sort: Size</option>
+          <option value="progress">Sort: Progress</option>
+          <option value="upspeed">Sort: UL Speed</option>
+          <option value="eta">Sort: ETA</option>
+          <option value="ratio">Sort: Ratio</option>
+          <option value="state">Sort: Status</option>
+        </select>
+        <button type="button" id="mobile-sort-dir" class="mobile-sort-dir" aria-label="Toggle sort direction" aria-pressed="true" title="Descending">&#8595;</button>
+      </div>
     </div>
   </div>
   <div class="table-wrap">

@@ -102,8 +102,8 @@ td { padding: 8px 8px; vertical-align: middle; }
 #error-bar:empty { display: none; }
 
 /* spinner */
-.spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; display: none; }
-.spinning .spinner { display: inline-block; }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; visibility: hidden; }
+.spinning .spinner { visibility: visible; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Login page ── */
@@ -150,7 +150,7 @@ td { padding: 8px 8px; vertical-align: middle; }
 .pw-warn-banner .btn-ghost:hover { border-color: var(--yellow); }
 
 /* ── Mobile sort dropdown (hidden on desktop) ── */
-.mobile-sort { display: none; }
+.mobile-sort, .mobile-sort-row, .mobile-sort-dir { display: none; }
 
 /* ══════════════════════════════════════════════════
    Mobile  (phones portrait & landscape ≤ 599px)
@@ -196,6 +196,16 @@ td { padding: 8px 8px; vertical-align: middle; }
     background-position: right 12px center;
   }
   .mobile-sort:focus { border-color: var(--accent); }
+  .mobile-sort-row { display: flex; gap: 8px; width: 100%; }
+  .mobile-sort { flex: 1; }
+  .mobile-sort-dir {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 44px; min-height: 44px; padding: 0 12px;
+    background: #1a1a1a; border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); font-size: 16px; font-family: var(--font);
+    cursor: pointer;
+  }
+  .mobile-sort-dir:focus { border-color: var(--accent); outline: none; }
 
   /* ── Torrent table → cards ── */
   .table-wrap { padding: 0 16px 16px; }
