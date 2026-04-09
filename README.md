@@ -6,12 +6,12 @@ A lightweight, read-only Docker web app for monitoring your qBittorrent instance
 
 ## Features
 
-- **Real-time monitoring** — dashboard polls every 5 seconds, backing off up to 60 seconds on repeated errors and resetting on reconnect
+- **Real-time monitoring** — dashboard polls at a configurable interval (default 5 seconds, adjustable in the admin panel), backing off up to 60 seconds on repeated errors and resetting on reconnect. Values below 5s are not recommended — qBittorrent may rate-limit or block API calls if polled too aggressively
 - **Filtering** — All, Downloading, Seeding, Completed, Running, Stopped, Active, Stalled (with live counts)
 - **Sortable columns** — Name, Size, Progress, DL/UL Speed, ETA, Ratio, Status
 - **Search** — instant case-insensitive filtering by torrent name
-- **Multi-user auth** — JWT-based login with admin, manager, and user roles
-- **Admin panel** — create/delete users, change passwords, view qBittorrent connection status
+- **Multi-user auth** — JWT-based login with admin, monitor, and user roles
+- **Admin panel** — create/delete users, change passwords, view qBittorrent connection status, configure dashboard refresh rate
 - **Password policy** — 8+ characters, uppercase, lowercase, digit, special character required
 - **Weak password detection** — grandfathered passwords flagged with a dashboard banner
 - **Setup wizard** — guided first-run setup if no admin password is configured
@@ -90,10 +90,11 @@ Pre-releases do **not** update `latest`.
 | `JWT_EXPIRY_MINUTES` | No | `720` | Session token lifetime in minutes (default: 12 hours) |
 | `LOGIN_RATE_LIMIT` | No | `5` | Max login attempts per minute per IP |
 | `TRUSTED_PROXIES` | No | — | Comma-separated list of trusted reverse proxy IPs (e.g. `10.0.0.1`). Ensures rate limiting counts the real client IP, not the proxy |
+| `REFRESH_RATE` | No | `5` | Dashboard polling interval in seconds on first run (range: 2–300). Once set, the admin panel value takes precedence — this env var only seeds the default for new deployments |
 
 ## User Roles
 
-| Capability | User | Manager | Admin |
+| Capability | User | Monitor | Admin |
 |------------|:----:|:-------:|:-----:|
 | View dashboard | Yes | Yes | Yes |
 | View ratio column | No | Yes | Yes |
@@ -101,7 +102,7 @@ Pre-releases do **not** update `latest`.
 | View qBit connection status | No | No | Yes |
 | Retry qBit login | No | No | Yes |
 
-The Manager role exists to grant ratio visibility to trusted non-admin users without giving full admin access.
+The Monitor role exists to grant ratio visibility to trusted non-admin users without giving full admin access.
 
 ## Reverse Proxy (HTTPS)
 

@@ -22,6 +22,13 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """
 
+CREATE_APP_SETTINGS_TABLE = """\
+CREATE TABLE IF NOT EXISTS app_settings (
+    key VARCHAR(50) PRIMARY KEY,
+    value TEXT NOT NULL
+)
+"""
+
 
 @asynccontextmanager
 async def get_connection():
@@ -66,6 +73,16 @@ async def _migrate_is_admin_to_role(conn):
     logger.info("Users table migration complete")
 
 
+async def _migrate_manager_to_monitor(conn):
+    """Rename legacy 'manager' role to 'monitor'."""
+    cursor = await conn.execute("SELECT COUNT(*) FROM users WHERE role='manager'")
+    count = (await cursor.fetchone())[0]
+    if count == 0:
+        return
+    logger.info("Migrating %d user(s) from role 'manager' to 'monitor'", count)
+    await conn.execute("UPDATE users SET role='monitor' WHERE role='manager'")
+
+
 async def _migrate_add_password_meets_policy(conn):
     """Add password_meets_policy column to existing users table."""
     cursor = await conn.execute("PRAGMA table_info(users)")
@@ -81,6 +98,15 @@ async def _migrate_add_password_meets_policy(conn):
     logger.info("password_meets_policy column added (existing users default to 0)")
 
 
+async def _migrate_add_app_settings(conn):
+    """Create app_settings table and seed refresh_rate from env/default on first run."""
+    await conn.execute(CREATE_APP_SETTINGS_TABLE)
+    await conn.execute(
+        "INSERT OR IGNORE INTO app_settings (key, value) VALUES ('refresh_rate', ?)",
+        (str(settings.REFRESH_RATE),),
+    )
+
+
 async def init_db():
     async with aiosqlite.connect(db_path) as conn:
         conn.row_factory = aiosqlite.Row
@@ -91,5 +117,7 @@ async def init_db():
         if await cursor.fetchone() is not None:
             await _migrate_is_admin_to_role(conn)
             await _migrate_add_password_meets_policy(conn)
+            await _migrate_manager_to_monitor(conn)
         await conn.execute(CREATE_USERS_TABLE)
+        await _migrate_add_app_settings(conn)
         await conn.commit()

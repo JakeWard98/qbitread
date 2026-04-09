@@ -53,13 +53,13 @@
 
     function roleBadgeClass(role) {
       if (role === 'admin') return 'badge-admin';
-      if (role === 'manager') return 'badge-manager';
+      if (role === 'monitor') return 'badge-monitor';
       return 'badge-user';
     }
 
     function roleLabel(role) {
       if (role === 'admin') return 'Admin';
-      if (role === 'manager') return 'Manager';
+      if (role === 'monitor') return 'Monitor';
       return 'User';
     }
 
@@ -225,6 +225,50 @@
         }
       });
     }
+
+    /* ── Dashboard Settings (refresh rate) ── */
+    async function loadRefreshRate() {
+      try {
+        const resp = await fetch('/api/auth/settings/refresh-rate');
+        if (resp.ok) {
+          const data = await resp.json();
+          const input = $('refresh-rate');
+          if (input) input.value = data.refresh_rate;
+        }
+      } catch { /* ignore */ }
+    }
+
+    const btnSaveRefresh = $('btn-save-refresh');
+    if (btnSaveRefresh) {
+      btnSaveRefresh.addEventListener('click', async () => {
+        const input = $('refresh-rate');
+        const msg = $('refresh-rate-msg');
+        const val = parseInt(input ? input.value : '', 10);
+        if (!val || val < 2 || val > 300) {
+          if (msg) msg.textContent = 'Value must be between 2 and 300.';
+          return;
+        }
+        try {
+          const resp = await fetch('/api/auth/settings/refresh-rate', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
+            body: JSON.stringify({ refresh_rate: val }),
+          });
+          if (resp.ok) {
+            if (msg) {
+              msg.textContent = 'Saved.';
+              setTimeout(() => { msg.textContent = ''; }, 2000);
+            }
+          } else {
+            if (msg) msg.textContent = 'Failed to save.';
+          }
+        } catch {
+          if (msg) msg.textContent = 'Failed to save.';
+        }
+      });
+    }
+
+    loadRefreshRate();
 
     /* ── Logout ── */
     const logoutBtn = $('btn-logout');

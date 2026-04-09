@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = ""
 
+    # Dashboard polling interval — seeds app_settings on first run; overridden by admin panel
+    REFRESH_RATE: int = 5  # seconds
+
     # Rate limiting
     LOGIN_RATE_LIMIT: int = 5  # attempts per minute
 

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User
-from app.auth.schemas import LoginRequest, PasswordUpdate, UserCreate, UserOut, password_meets_policy
+from app.auth.schemas import LoginRequest, PasswordUpdate, RefreshRateUpdate, UserCreate, UserOut, password_meets_policy
 from app.auth.security import create_jwt, generate_csrf_token, get_dummy_hash, hash_password, verify_password
 from app.config import settings
 from app.database import get_db
@@ -177,3 +177,24 @@ async def delete_user(
 
     await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
     await db.commit()
+
+
+@router.get("/settings/refresh-rate")
+async def get_refresh_rate(_: User = Depends(get_current_user), db=Depends(get_db)):
+    cursor = await db.execute("SELECT value FROM app_settings WHERE key = 'refresh_rate'")
+    row = await cursor.fetchone()
+    return {"refresh_rate": int(row["value"]) if row else 5}
+
+
+@router.put("/settings/refresh-rate")
+async def set_refresh_rate(
+    body: RefreshRateUpdate,
+    _: User = Depends(require_admin),
+    db=Depends(get_db),
+):
+    await db.execute(
+        "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('refresh_rate', ?)",
+        (str(body.refresh_rate),),
+    )
+    await db.commit()
+    return {"refresh_rate": body.refresh_rate}

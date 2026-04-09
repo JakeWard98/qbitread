@@ -78,7 +78,7 @@
     let refreshTimer = null;
     let countdown = 0;
     let countdownTimer = null;
-    const INTERVAL = 5;
+    let INTERVAL = 5;
     const MAX_INTERVAL = 60;
     let currentInterval = INTERVAL;
     let consecutiveErrors = 0;
@@ -117,7 +117,7 @@
 
     /* ── Role visibility ── */
     function applyRoleVisibility() {
-      const showRatio = userRole === 'admin' || userRole === 'manager';
+      const showRatio = userRole === 'admin' || userRole === 'monitor';
       const ratioTh = document.querySelector('thead th[data-col="ratio"]');
       if (ratioTh) ratioTh.style.display = showRatio ? '' : 'none';
     }
@@ -272,7 +272,7 @@
       }
       empty.style.display = 'none';
 
-      const showRatio = userRole === 'admin' || userRole === 'manager';
+      const showRatio = userRole === 'admin' || userRole === 'monitor';
       tbody.innerHTML = list
         .map((t) => {
           const sc = stateClass(t.state);
@@ -403,9 +403,18 @@
     }
 
     /* ── Boot ── */
-    checkAuth().then(() => {
+    (async function boot() {
+      await checkAuth();
+      try {
+        const resp = await fetch('/api/auth/settings/refresh-rate');
+        if (resp.ok) {
+          const data = await resp.json();
+          INTERVAL = Math.max(2, Math.min(300, data.refresh_rate));
+          currentInterval = INTERVAL;
+        }
+      } catch { /* use default */ }
       doRefresh();
-    });
+    })();
   }
 
   if (document.readyState === 'loading') {

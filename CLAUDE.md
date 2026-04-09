@@ -131,7 +131,7 @@ Applied via `SecurityHeadersMiddleware` in `app/middleware.py`:
 - **No test framework** currently in the project.
 - **Middleware order matters**: SecurityHeaders -> RateLimiting -> CSRF (applied in reverse in `main.py`).
 - **Error handling**: qBit client returns structured error responses; frontend shows connection status indicator with error messages.
-- **Frontend polling**: Dashboard polls `/api/torrents` and `/api/transfer` every 5 seconds with automatic backoff on errors.
+- **Frontend polling**: Dashboard polls `/api/torrents` and `/api/transfer` at a configurable interval (default 5 seconds, stored in `app_settings` DB table, adjustable via admin panel). On errors, it backs off exponentially up to 60 seconds.
 - **Dependencies are pinned** in `requirements.txt`. Update versions deliberately.
 
 ## Environment Variables
@@ -145,6 +145,7 @@ All configuration is via environment variables. See `.env.example` for the full 
 | `SECRET_KEY` | No | JWT signing key (auto-generated if not set) |
 | `ADMIN_PASSWORD` | Recommended | Bootstrap admin password (setup wizard if omitted) |
 | `SECURE_COOKIES` | No | Set `true` behind HTTPS proxy |
+| `REFRESH_RATE` | No | Initial dashboard polling interval in seconds (default: `5`, range: 2–300). Seeds `app_settings` on first run only; admin panel value takes precedence on subsequent starts |
 
 ## CI/CD
 
