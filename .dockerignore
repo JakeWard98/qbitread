@@ -8,6 +8,15 @@ __pycache__
 .mypy_cache
 .ruff_cache
 *.md
+LICENSE
 Dockerfile
 docker-compose*.yml
 .github/
+data/
+*.db
+*.sqlite
+*.sqlite3
+tests/
+test/
+.vscode/
+.idea/
