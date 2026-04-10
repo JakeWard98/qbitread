@@ -37,10 +37,14 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class RefreshRateUpdate(BaseModel):
+    refresh_rate: int = Field(ge=2, le=300)
+
+
 class UserCreate(BaseModel):
     username: str = Field(min_length=1, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
     password: str = Field(min_length=8, max_length=128)
-    role: Literal["user", "manager", "admin"] = "user"
+    role: Literal["user", "monitor", "admin"] = "user"
 
     @field_validator("password")
     @classmethod

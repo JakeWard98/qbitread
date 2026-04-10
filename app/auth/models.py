@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 
-VALID_ROLES = ("user", "manager", "admin")
+VALID_ROLES = ("user", "monitor", "admin")
 
 
 @dataclass

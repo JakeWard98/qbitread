@@ -129,7 +129,7 @@ td { padding: 8px 8px; vertical-align: middle; }
 .admin-table th { text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; padding: 8px; border-bottom: 1px solid var(--border); }
 .admin-table td { padding: 8px; border-bottom: 1px solid #1c1c1c; font-size: 13px; }
 .admin-table .badge-admin { background: rgba(79,142,247,.15); color: var(--accent); }
-.admin-table .badge-manager { background: rgba(62,207,110,.12); color: var(--green); }
+.admin-table .badge-monitor { background: rgba(62,207,110,.12); color: var(--green); }
 .admin-table .badge-user { background: rgba(102,102,102,.15); color: var(--muted); }
 
 /* ── Password policy tooltip ── */
