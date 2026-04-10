@@ -1,4 +1,4 @@
-# qBitRead
+# qBitRead [![CodeQL](https://github.com/JakeWard98/qbitread/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/JakeWard98/qbitread/actions/workflows/github-code-scanning/codeql)
 
 A lightweight, read-only Docker web app for monitoring your qBittorrent instance. Dark, minimal dashboard with live speeds, progress, ETA, and multi-user authentication.
 
