@@ -6,7 +6,7 @@
   <title>qBit Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="alternate icon" type="image/x-icon" href="/static/favicon.ico">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=2">
 </head>
 <body>
   <header>
@@ -25,6 +25,19 @@
     <div class="stat"><span class="stat-label">Upload</span><span class="stat-value ul" id="s-ul">&mdash;</span></div>
   </div>
   <div id="toolbar">
+    <div class="mobile-filter-row">
+      <select id="mobile-filter" class="mobile-filter">
+        <option value="all">All (0)</option>
+        <option value="downloading">Downloading (0)</option>
+        <option value="seeding">Seeding (0)</option>
+        <option value="completed">Completed (0)</option>
+        <option value="running">Running (0)</option>
+        <option value="stopped">Stopped (0)</option>
+        <option value="active">Active (0)</option>
+        <option value="stalled">Stalled (0)</option>
+      </select>
+      <button type="button" id="mobile-filter-dir" class="mobile-filter-dir" aria-label="Toggle sort direction" aria-pressed="true" title="Descending">&#8595;</button>
+    </div>
     <div id="toolbar-left">
       <button class="filter-btn active" data-filter="all">All <span class="filter-count" id="fc-all">0</span></button>
       <button class="filter-btn" data-filter="downloading">Downloading <span class="filter-count" id="fc-downloading">0</span></button>
@@ -71,6 +84,6 @@
     </table>
     <div id="empty">No torrents match your filter.</div>
   </div>
-  <script data-cfasync="false" src="/static/js/app.js"></script>
+  <script data-cfasync="false" src="/static/js/app.js?v=2"></script>
 </body>
 </html>
