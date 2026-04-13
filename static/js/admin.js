@@ -22,6 +22,14 @@
     return d.innerHTML;
   }
 
+  function validateHttpUrl(raw) {
+    try {
+      const u = new URL(raw);
+      if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
+    } catch { /* invalid URL */ }
+    return null;
+  }
+
   function init() {
     const errorEl = $('admin-error');
     const tbody = $('users-tbody');
@@ -463,9 +471,10 @@
         const username = $('qbit-user').value.trim();
         const password = $('qbit-pass').value;
 
-        if (!url) {
+        const validUrl = validateHttpUrl(url);
+        if (!validUrl) {
           if (browserAuthMsg) {
-            browserAuthMsg.textContent = 'qBit URL is required.';
+            browserAuthMsg.textContent = 'A valid http:// or https:// URL is required.';
             browserAuthMsg.style.color = 'var(--red)';
           }
           return;
@@ -488,7 +497,7 @@
         // Create hidden form targeting the iframe
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = url.replace(/\/+$/, '') + '/api/v2/auth/login';
+        form.action = validUrl.replace(/\/+$/, '') + '/api/v2/auth/login';
         form.target = 'qbit-auth-frame';
         form.style.display = 'none';
 
@@ -524,14 +533,15 @@
     if (openWebuiBtn) {
       openWebuiBtn.addEventListener('click', () => {
         const url = $('qbit-url').value.trim();
-        if (!url) {
+        const validUrl = validateHttpUrl(url);
+        if (!validUrl) {
           if (browserAuthMsg) {
-            browserAuthMsg.textContent = 'Enter a qBit URL first.';
+            browserAuthMsg.textContent = 'Enter a valid http:// or https:// URL first.';
             browserAuthMsg.style.color = 'var(--red)';
           }
           return;
         }
-        window.open(url, '_blank');
+        window.open(validUrl, '_blank');
       });
     }
 

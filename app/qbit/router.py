@@ -63,8 +63,9 @@ async def retry_login(
     try:
         await client.force_login()
         return {"success": True, "message": "Successfully authenticated with qBittorrent"}
-    except ConnectionError as e:
-        return {"success": False, "message": str(e)}
+    except ConnectionError:
+        logger.exception("retry-login failed for admin '%s'", user.username)
+        return {"success": False, "message": "Failed to authenticate with qBittorrent. Check server logs for details."}
 
 
 @router.get("/qbit/browser-auth-creds")
