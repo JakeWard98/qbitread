@@ -80,12 +80,12 @@
             : '<span class="badge badge-pw-weak" title="Password does not meet current security requirements">Weak</span>';
           return (
             '<tr>' +
-            '<td>' + escHtml(u.username) + '</td>' +
-            '<td><span class="badge ' + roleBadgeClass(u.role) + '">' + roleLabel(u.role) + '</span>' +
-            ' <button class="btn-ghost btn-chrl" data-id="' + u.id + '" data-role="' + escHtml(u.role) + '">Change</button></td>' +
-            '<td style="color:var(--muted)">' + created + '</td>' +
-            '<td>' + pwStatus + ' <button class="btn-ghost btn-chpw" data-id="' + u.id + '" data-name="' + escHtml(u.username) + '">Change</button></td>' +
-            '<td><button class="btn-danger btn-del" data-id="' + u.id + '">Delete</button></td>' +
+            '<td class="td-user">' + escHtml(u.username) + '</td>' +
+            '<td class="td-role"><span class="badge ' + roleBadgeClass(u.role) + '">' + roleLabel(u.role) + '</span>' +
+            ' <button class="btn-ghost btn-chrl" data-id="' + u.id + '" data-role="' + escHtml(u.role) + '">Change Role</button></td>' +
+            '<td class="td-created" style="color:var(--muted)">' + created + '</td>' +
+            '<td class="td-pw">' + pwStatus + ' <button class="btn-ghost btn-chpw" data-id="' + u.id + '" data-name="' + escHtml(u.username) + '">Change</button></td>' +
+            '<td class="td-actions"><button class="btn-danger btn-del" data-id="' + u.id + '">Delete</button></td>' +
             '</tr>'
           );
         })

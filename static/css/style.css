@@ -131,6 +131,8 @@ td { padding: 8px 8px; vertical-align: middle; }
 .admin-table .badge-admin { background: rgba(79,142,247,.15); color: var(--accent); }
 .admin-table .badge-monitor { background: rgba(62,207,110,.12); color: var(--green); }
 .admin-table .badge-user { background: rgba(102,102,102,.15); color: var(--muted); }
+.admin-table .btn-chrl { color: var(--accent); border-color: rgba(79,142,247,.25); font-size: 11px; }
+.admin-table .btn-chrl:hover { color: #fff; border-color: var(--accent); }
 
 /* ── Password policy tooltip ── */
 .pw-field-wrap { position: relative; }
@@ -332,6 +334,14 @@ td { padding: 8px 8px; vertical-align: middle; }
   .admin-table tr { padding: 12px 0; border-bottom: 1px solid #1c1c1c; }
   .admin-table td { padding: 4px 0; border-bottom: none; }
   .admin-table td:first-child { font-weight: 600; font-size: 14px; }
+  .admin-table .badge { font-size: 11px; padding: 3px 8px; }
+  .admin-table .td-role::before { content: "Role: "; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
+  .admin-table .td-created::before { content: "Created: "; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
+  .admin-table .td-pw::before { content: "Password: "; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
+  .admin-table .chrl-inline td::before,
+  .admin-table .chpw-inline td::before { content: none; }
+  .admin-table .chrl-inline td,
+  .admin-table .chpw-inline td { padding: 10px 0; }
 
   /* Password tooltip repositioning */
   .pw-tooltip { left: auto; right: 0; transform: none; }
