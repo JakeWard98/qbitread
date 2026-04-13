@@ -235,6 +235,16 @@
         const el = document.getElementById('fc-' + key);
         if (el) el.textContent = val;
       }
+      // Update mobile filter dropdown text with counts
+      const mf = $('mobile-filter');
+      if (mf) {
+        for (const opt of mf.options) {
+          const key = opt.value;
+          const label = key.charAt(0).toUpperCase() + key.slice(1);
+          const count = counts[key] !== undefined ? counts[key] : 0;
+          opt.textContent = label + ' (' + count + ')';
+        }
+      }
     }
 
     /* ── Render ── */
@@ -347,6 +357,13 @@
         mobileSortDir.setAttribute('aria-pressed', desc ? 'true' : 'false');
         mobileSortDir.title = desc ? 'Descending' : 'Ascending';
       }
+      const mfd = $('mobile-filter-dir');
+      if (mfd) {
+        const desc = sortDir === -1;
+        mfd.textContent = desc ? '\u2193' : '\u2191';
+        mfd.setAttribute('aria-pressed', desc ? 'true' : 'false');
+        mfd.title = desc ? 'Descending' : 'Ascending';
+      }
     }
 
     /* ── Filter ── */
@@ -355,9 +372,31 @@
         document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         filterState = btn.dataset.filter;
+        const mf = $('mobile-filter');
+        if (mf) mf.value = filterState;
         render();
       });
     });
+
+    /* ── Mobile filter dropdown ── */
+    const mobileFilter = $('mobile-filter');
+    if (mobileFilter) {
+      mobileFilter.addEventListener('change', () => {
+        filterState = mobileFilter.value;
+        document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+        const activeBtn = document.querySelector('.filter-btn[data-filter="' + filterState + '"]');
+        if (activeBtn) activeBtn.classList.add('active');
+        render();
+      });
+    }
+    const mobileFilterDir = $('mobile-filter-dir');
+    if (mobileFilterDir) {
+      mobileFilterDir.addEventListener('click', () => {
+        sortDir *= -1;
+        syncSortUi();
+        render();
+      });
+    }
 
     /* ── Search ── */
     const searchEl = $('search');

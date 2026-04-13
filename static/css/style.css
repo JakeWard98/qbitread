@@ -150,7 +150,7 @@ td { padding: 8px 8px; vertical-align: middle; }
 .pw-warn-banner .btn-ghost:hover { border-color: var(--yellow); }
 
 /* ── Mobile sort dropdown (hidden on desktop) ── */
-.mobile-sort, .mobile-sort-row, .mobile-sort-dir { display: none; }
+.mobile-sort, .mobile-sort-row, .mobile-sort-dir, .mobile-filter, .mobile-filter-row, .mobile-filter-dir { display: none; }
 
 /* ══════════════════════════════════════════════════
    Mobile  (phones portrait & landscape ≤ 599px)
@@ -172,8 +172,36 @@ td { padding: 8px 8px; vertical-align: middle; }
   /* ── Toolbar ── */
   #toolbar { flex-direction: column; padding: 10px 16px; gap: 10px; align-items: stretch; }
   #toolbar > div:last-child { width: 100%; }
-  #toolbar-left { gap: 6px; }
-  .filter-btn { padding: 8px 10px; min-height: 36px; font-size: 12px; }
+  #toolbar-left { display: none; }
+
+  /* ── Mobile filter dropdown ── */
+  .mobile-filter-row { display: flex; gap: 8px; width: 100%; }
+  .mobile-filter {
+    display: block;
+    flex: 1;
+    background: #1a1a1a;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: var(--font);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+  .mobile-filter:focus { border-color: var(--accent); }
+  .mobile-filter-dir {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 44px; min-height: 44px; padding: 0 12px;
+    background: #1a1a1a; border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); font-size: 16px; font-family: var(--font);
+    cursor: pointer;
+  }
+  .mobile-filter-dir:focus { border-color: var(--accent); outline: none; }
   #search { width: 100%; font-size: 14px; padding: 10px 12px; }
   #refresh-info { display: none; }
 
