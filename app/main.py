@@ -79,6 +79,25 @@ async def _has_users() -> bool:
         return await cursor.fetchone() is not None
 
 
+async def _get_user_from_token(request: Request) -> User | None:
+    """Read JWT subject and look up the user in the database.
+
+    Returns the User if the token is valid and the user exists, else None.
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        return None
+    payload = verify_jwt(token)
+    if not payload:
+        return None
+    async with get_connection() as db:
+        cursor = await db.execute(
+            "SELECT * FROM users WHERE username = ?", (payload["sub"],)
+        )
+        row = await cursor.fetchone()
+    return User.from_row(row)
+
+
 app = FastAPI(title="qBitRead", docs_url=None, redoc_url=None, lifespan=lifespan)
 
 # Middleware (applied in reverse order)
@@ -132,11 +151,10 @@ async def login_page():
 
 @app.get("/admin")
 async def admin_page(request: Request):
-    token = request.cookies.get("access_token")
-    if not token:
+    user = await _get_user_from_token(request)
+    if not user:
         return RedirectResponse("/login")
-    payload = verify_jwt(token)
-    if not payload or payload.get("role") != "admin":
+    if not user.is_admin:
         return RedirectResponse("/")
     return FileResponse("templates/admin.html")
 
@@ -145,10 +163,7 @@ async def admin_page(request: Request):
 async def index_page(request: Request):
     if not await _has_users():
         return RedirectResponse("/setup")
-    token = request.cookies.get("access_token")
-    if not token:
-        return RedirectResponse("/login")
-    payload = verify_jwt(token)
-    if not payload:
+    user = await _get_user_from_token(request)
+    if not user:
         return RedirectResponse("/login")
     return FileResponse("templates/index.html")
