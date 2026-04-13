@@ -134,7 +134,7 @@ td { padding: 8px 8px; vertical-align: middle; }
 .admin-table .btn-chrl { color: var(--accent); border-color: rgba(79,142,247,.25); font-size: 11px; }
 .admin-table .btn-chrl:hover { color: #fff; border-color: var(--accent); }
 .admin-table .td-role { display: flex; align-items: center; gap: 8px; }
-.admin-table .td-role .badge { min-width: 56px; text-align: center; }
+.admin-table .td-role .badge { min-width: 66px; text-align: center; }
 
 /* ── Password policy tooltip ── */
 .pw-field-wrap { position: relative; }
