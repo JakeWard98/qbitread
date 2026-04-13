@@ -61,6 +61,10 @@ class PasswordUpdate(BaseModel):
         return _check_password_policy(v)
 
 
+class RoleUpdate(BaseModel):
+    role: Literal["user", "monitor", "admin"]
+
+
 class UserOut(BaseModel):
     id: int
     username: str

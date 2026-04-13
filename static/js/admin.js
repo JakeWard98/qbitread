@@ -73,7 +73,8 @@
           return (
             '<tr>' +
             '<td>' + escHtml(u.username) + '</td>' +
-            '<td><span class="badge ' + roleBadgeClass(u.role) + '">' + roleLabel(u.role) + '</span></td>' +
+            '<td><span class="badge ' + roleBadgeClass(u.role) + '">' + roleLabel(u.role) + '</span>' +
+            ' <button class="btn-ghost btn-chrl" data-id="' + u.id + '" data-role="' + escHtml(u.role) + '">Change</button></td>' +
             '<td style="color:var(--muted)">' + created + '</td>' +
             '<td>' + pwStatus + ' <button class="btn-ghost btn-chpw" data-id="' + u.id + '" data-name="' + escHtml(u.username) + '">Change</button></td>' +
             '<td><button class="btn-danger btn-del" data-id="' + u.id + '">Delete</button></td>' +
@@ -88,6 +89,10 @@
 
       tbody.querySelectorAll('.btn-chpw').forEach((btn) => {
         btn.addEventListener('click', () => showChangePassword(parseInt(btn.dataset.id), btn.dataset.name));
+      });
+
+      tbody.querySelectorAll('.btn-chrl').forEach((btn) => {
+        btn.addEventListener('click', () => showChangeRole(parseInt(btn.dataset.id), btn.dataset.role));
       });
     }
 
@@ -173,6 +178,68 @@
 
           msg.style.color = 'var(--green)';
           msg.textContent = 'Password updated.';
+          setTimeout(() => { row.remove(); loadUsers(); }, 1000);
+        } catch {
+          msg.textContent = 'Network error.';
+        }
+      });
+    }
+
+    /* ── Change Role ── */
+    function showChangeRole(userId, currentRole) {
+      const existing = document.getElementById('chrl-form-' + userId);
+      if (existing) { existing.remove(); return; }
+
+      document.querySelectorAll('.chrl-inline').forEach((el) => el.remove());
+
+      const row = document.createElement('tr');
+      row.className = 'chrl-inline';
+      row.id = 'chrl-form-' + userId;
+      row.innerHTML =
+        '<td colspan="5" style="padding:10px 8px">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0">' +
+        '<span style="font-size:12px;color:var(--muted);white-space:nowrap">New role:</span>' +
+        '<select class="chrl-select" style="background:#1e1e1e;border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 8px;font-size:12px;outline:none;min-width:100px">' +
+        '<option value="user"' + (currentRole === 'user' ? ' selected' : '') + '>User</option>' +
+        '<option value="monitor"' + (currentRole === 'monitor' ? ' selected' : '') + '>Monitor</option>' +
+        '<option value="admin"' + (currentRole === 'admin' ? ' selected' : '') + '>Admin</option>' +
+        '</select>' +
+        '<button class="btn-primary chrl-save" style="font-size:11px;padding:6px 12px">Save</button>' +
+        '<button class="btn-ghost chrl-cancel" style="font-size:11px;padding:6px 10px">Cancel</button>' +
+        '<span class="chrl-msg" style="font-size:12px;min-height:16px"></span>' +
+        '</div>' +
+        '</td>';
+
+      const userRow = tbody.querySelector('.btn-chrl[data-id="' + userId + '"]').closest('tr');
+      userRow.after(row);
+
+      const select = row.querySelector('.chrl-select');
+      const msg = row.querySelector('.chrl-msg');
+      select.focus();
+
+      row.querySelector('.chrl-cancel').addEventListener('click', () => row.remove());
+
+      row.querySelector('.chrl-save').addEventListener('click', async () => {
+        msg.textContent = '';
+        msg.style.color = 'var(--red)';
+        try {
+          const resp = await fetch('/api/auth/users/' + userId + '/role', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': getCsrfToken(),
+            },
+            body: JSON.stringify({ role: select.value }),
+          });
+
+          if (!resp.ok) {
+            const data = await resp.json();
+            msg.textContent = data.detail || 'Failed to change role.';
+            return;
+          }
+
+          msg.style.color = 'var(--green)';
+          msg.textContent = 'Role updated.';
           setTimeout(() => { row.remove(); loadUsers(); }, 1000);
         } catch {
           msg.textContent = 'Network error.';
