@@ -1,13 +1,47 @@
 import asyncio
 import hmac
 import ipaddress
+import logging
+import re
 import time
 from collections import defaultdict
+from urllib.parse import urlparse
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Regex to validate CSP source values: scheme://host[:port] only
+_CSP_ORIGIN_RE = re.compile(r"^https?://[a-zA-Z0-9\-._~:]+$")
+
+
+def _sanitize_csp_origin(value: str) -> str | None:
+    """Validate that a value is safe for inclusion in a CSP directive.
+
+    Returns the origin (scheme://host[:port]) if valid, None otherwise.
+    This prevents CSP injection via crafted QBIT_BROWSER_HOST values.
+    """
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https"):
+            return None
+        if not parsed.hostname:
+            return None
+        origin = f"{parsed.scheme}://{parsed.hostname}"
+        if parsed.port:
+            origin += f":{parsed.port}"
+        if _CSP_ORIGIN_RE.match(origin):
+            return origin
+    except Exception:
+        pass
+    logger.warning("QBIT_BROWSER_HOST value rejected for CSP: %r", value)
+    return None
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -15,9 +49,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response: Response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["X-XSS-Protection"] = "0"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if settings.SECURE_COOKIES:
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         # NOTE: 'unsafe-inline' is required for style-src because templates and JS
         # use inline style attributes extensively. Removing it requires migrating
         # all inline styles to CSS classes — tracked as a future improvement.
@@ -29,13 +65,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline'; "
             "script-src 'self'; "
             "img-src 'self' data:; "
-            "connect-src 'self'"
+            "connect-src 'self'; "
+            "frame-ancestors 'none'"
         )
-        browser_host = settings.QBIT_BROWSER_HOST
-        if browser_host:
-            # Lock form/frame targets to self + configured browser host
-            csp += f"; form-action 'self' {browser_host}"
-            csp += f"; frame-src 'self' {browser_host}"
+        browser_origin = _sanitize_csp_origin(settings.QBIT_BROWSER_HOST)
+        if browser_origin:
+            csp += f"; form-action 'self' {browser_origin}"
+            csp += f"; frame-src 'self' {browser_origin}"
         response.headers["Content-Security-Policy"] = csp
         return response
 
@@ -61,7 +97,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     @staticmethod
     def _is_trusted_proxy(ip: str) -> bool:
         if not settings.TRUSTED_PROXIES:
-            return True  # Backward compat: trust all if not configured
+            return False  # Do not trust X-Forwarded-For unless proxies are explicitly configured
         try:
             addr = ipaddress.ip_address(ip)
             for proxy in settings.TRUSTED_PROXIES:

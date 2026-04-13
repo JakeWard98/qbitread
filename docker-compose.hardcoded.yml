@@ -17,12 +17,12 @@ services:
     environment:
       - QBIT_HOST=http://your-qbittorrent-ip:8080  # REQUIRED: set to your qBittorrent URL
       - QBIT_USERNAME=admin
-      - QBIT_PASSWORD=changeme
+      - QBIT_PASSWORD=CHANGE_ME_TO_A_STRONG_PASSWORD   # REQUIRED: change before use
       # SECRET_KEY is auto-generated if omitted
       # - SECRET_KEY=change-me-to-a-random-64-char-string
       # Admin credentials (recommended). If omitted, a setup wizard runs on first visit.
       - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=changeme
+      - ADMIN_PASSWORD=CHANGE_ME_TO_A_STRONG_PASSWORD   # REQUIRED: change before use
       - SECURE_COOKIES=false
     volumes:
       - qbitread_data:/app/data

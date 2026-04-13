@@ -53,7 +53,8 @@ class Settings(BaseSettings):
             os.makedirs(data_dir, exist_ok=True)
 
             if os.path.exists(key_file):
-                self.SECRET_KEY = open(key_file).read().strip()
+                with open(key_file) as f:
+                    self.SECRET_KEY = f.read().strip()
                 if self.SECRET_KEY:
                     logger.info("SECRET_KEY loaded from %s", key_file)
                     return self
