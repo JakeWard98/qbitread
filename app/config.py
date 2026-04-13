@@ -60,9 +60,11 @@ class Settings(BaseSettings):
                     return self
 
             self.SECRET_KEY = secrets.token_hex(32)
-            with open(key_file, "w") as f:
-                f.write(self.SECRET_KEY)
-            os.chmod(key_file, 0o600)
+            fd = os.open(key_file, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+            try:
+                os.write(fd, self.SECRET_KEY.encode())
+            finally:
+                os.close(fd)
             logger.info("SECRET_KEY auto-generated and saved to %s", key_file)
         except OSError as exc:
             # Fall back to an ephemeral key (lost on restart)
