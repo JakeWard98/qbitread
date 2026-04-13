@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User
-from app.auth.schemas import LoginRequest, PasswordUpdate, RefreshRateUpdate, UserCreate, UserOut, password_meets_policy
+from app.auth.schemas import LoginRequest, PasswordUpdate, RefreshRateUpdate, RoleUpdate, UserCreate, UserOut, password_meets_policy
 from app.auth.security import create_jwt, generate_csrf_token, get_dummy_hash, hash_password, verify_password
 from app.config import settings
 from app.database import get_db
@@ -160,6 +160,28 @@ async def change_user_password(
     )
     await db.commit()
     return {"message": "Password updated"}
+
+
+@router.put("/users/{user_id}/role", status_code=200)
+async def change_user_role(
+    user_id: int,
+    body: RoleUpdate,
+    current_user: User = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot change your own role")
+
+    cursor = await db.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    if not await cursor.fetchone():
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await db.execute(
+        "UPDATE users SET role = ? WHERE id = ?",
+        (body.role, user_id),
+    )
+    await db.commit()
+    return {"message": "Role updated"}
 
 
 @router.delete("/users/{user_id}", status_code=204)
