@@ -90,7 +90,7 @@ Pre-releases do **not** update `latest`.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `QBIT_HOST` | Yes | — | qBittorrent Web UI URL (e.g. `http://qbit:8080`) |
-| `QBIT_USERNAME` | No | `admin` | qBittorrent username |
+| `QBIT_USERNAME` | Yes | `admin` | qBittorrent username |
 | `QBIT_PASSWORD` | Yes | — | qBittorrent password |
 | `SECRET_KEY` | No | auto-generated | JWT signing key. Auto-generated and persisted to the data volume if not set |
 | `ADMIN_USERNAME` | No | `admin` | Bootstrap admin username |
