@@ -4,7 +4,11 @@
 
 </div>
 
+<div align="center">
+
 # qBitRead <img src="static/favicon.svg" alt="qBitRead Logo" width="30">
+
+</div>
 
 A lightweight, read-only Docker web app for monitoring your qBittorrent instance. Dark, minimal dashboard with live speeds, progress, ETA, and multi-user authentication.
 
