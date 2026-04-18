@@ -32,10 +32,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `ENABLE_BROWSER_AUTH` environment variable (see README env-var table).
 - Docker Compose healthcheck probing `/login` — container now reports
-  `healthy` / `unhealthy` via `docker inspect`.
+  `healthy` / `unhealthy` via `docker inspect`. Also added to
+  `docker-compose.hardcoded.yml`.
 - `SECURITY.md` — supported versions, private disclosure process, threat
   model, operational recommendations.
 - `CHANGELOG.md` — this file.
+
+### Dependencies
+- fastapi 0.135.3 → **0.136.0**
+- uvicorn 0.34.2 → **0.44.0**
+- bcrypt 4.3.0 → **5.0.0** (API-compatible; `$2b$12$` hash prefix preserved)
+- aiosqlite 0.20.0 → **0.22.1**
+- pydantic-settings 2.7.1 → **2.13.1**
+- httpx, PyJWT unchanged (already at latest)
+- Smoke-tested: bcrypt roundtrip, JWT roundtrip, schema validation, SQLite
+  roundtrip, full uvicorn boot, and endpoint/header checks all pass.
 
 ### Changed
 - `CLAUDE.md`: Security Headers section now documents the actual CSP emitted
