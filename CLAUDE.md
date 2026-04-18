@@ -8,6 +8,14 @@ qBitRead is a lightweight, read-only Docker web application that monitors a qBit
 
 Self-hosted qBittorrent users need a simple, secure way to glance at torrent status without exposing the full qBittorrent Web UI. qBitRead provides a locked-down, multi-user dashboard that proxies all communication through a backend, keeping qBittorrent credentials completely hidden from the browser.
 
+## Documentation Maintenance
+
+At the start or end of every task/chat in this repo, scan all Markdown files
+(`CLAUDE.md`, `README.md`, and any other `*.md` files in the project) and update
+any whose content is rendered inaccurate or incomplete by the changes made in
+that session. If nothing needs updating, no action is required — but the review
+itself is mandatory.
+
 ## Tech Stack
 
 - **Backend**: Python 3.12, FastAPI, Uvicorn (ASGI)
