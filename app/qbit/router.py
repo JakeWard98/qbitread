@@ -50,6 +50,7 @@ async def connection_info(
     status = client.get_status()
     status["browser_host"] = settings.QBIT_BROWSER_HOST
     status["qbit_username"] = settings.QBIT_USERNAME
+    status["browser_auth_enabled"] = settings.ENABLE_BROWSER_AUTH
     return status
 
 
@@ -73,7 +74,12 @@ async def browser_auth_creds(
     request: Request,
     user: User = Depends(require_admin),
 ):
-    logger.warning("Admin '%s' requested qBit credentials for browser auth", user.username)
+    # Off by default: returning qBit credentials to the browser breaks the
+    # "credentials stay on the server" model. Operators who need this for
+    # IP-ban recovery must opt in via ENABLE_BROWSER_AUTH=true.
+    if not settings.ENABLE_BROWSER_AUTH:
+        raise HTTPException(status_code=404, detail="Not found")
+    logger.info("Browser-auth credentials served to an admin session")
     return JSONResponse(
         content={
             "url": settings.QBIT_BROWSER_HOST,

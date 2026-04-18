@@ -366,6 +366,14 @@
         if (!resp.ok) return;
         const info = await resp.json();
 
+        const browserAuthBlock = $('browser-auth-block');
+        if (browserAuthBlock) {
+          browserAuthBlock.style.display = info.browser_auth_enabled ? 'flex' : 'none';
+        }
+        const banHint = info.browser_auth_enabled
+          ? 'Use Browser Auth or wait for ban to lift.'
+          : 'Log into qBittorrent directly to clear the ban, then use Retry Login.';
+
         if (qbitDot && qbitStatusText && qbitStatusMsg) {
           if (info.authenticated) {
             qbitDot.className = 'dot dot-green';
@@ -376,7 +384,7 @@
             qbitDot.className = 'dot dot-red';
             qbitStatusText.textContent = 'IP Banned';
             qbitStatusText.style.color = 'var(--red)';
-            qbitStatusMsg.textContent = 'Ban time remaining: ~' + info.ban_seconds_remaining + 's. Use Browser Auth or wait for ban to lift.';
+            qbitStatusMsg.textContent = 'Ban time remaining: ~' + info.ban_seconds_remaining + 's. ' + banHint;
           } else if (info.cooldown_remaining > 0) {
             qbitDot.className = 'dot dot-red';
             qbitStatusText.textContent = 'Cooldown';
@@ -390,12 +398,13 @@
           }
         }
 
-        // Pre-fill fields from config
-        if (info.browser_host && !$('qbit-url').value) {
-          $('qbit-url').value = info.browser_host;
-        }
-        if (info.qbit_username && !$('qbit-user').value) {
-          $('qbit-user').value = info.qbit_username;
+        if (info.browser_auth_enabled) {
+          if (info.browser_host && !$('qbit-url').value) {
+            $('qbit-url').value = info.browser_host;
+          }
+          if (info.qbit_username && !$('qbit-user').value) {
+            $('qbit-user').value = info.qbit_username;
+          }
         }
       } catch {
         if (qbitDot) qbitDot.className = 'dot dot-red';

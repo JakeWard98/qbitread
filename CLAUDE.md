@@ -87,7 +87,8 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 ### Credential Isolation
 
 - qBittorrent credentials (`QBIT_HOST`, `QBIT_USERNAME`, `QBIT_PASSWORD`) exist **only** on the backend. They must **never** appear in API responses, HTML templates, JavaScript, or any data sent to the browser.
-- The `SECRET_KEY` is auto-generated and persisted to `/app/data/.secret_key` with `0o600` permissions. It must never be logged or exposed.
+- The sole documented exception is the opt-in `ENABLE_BROWSER_AUTH=true` feature: when explicitly enabled by the operator, `/api/qbit/browser-auth-creds` returns qBit credentials to an admin browser so the admin can POST a login to qBit from their own IP (used for IP-ban recovery). The endpoint returns 404 when the flag is false and the admin UI hides the form. Any future change here must keep this flag-gated invariant.
+- The `SECRET_KEY` is auto-generated and persisted to `/app/data/.secret_key` with `0o600` permissions. It must never be logged or exposed. If the key cannot be persisted (e.g. volume permission error) the app fails fast on startup rather than silently using an ephemeral key that would invalidate every existing JWT.
 
 ### Authentication & Session Security
 
@@ -110,11 +111,13 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 ### Security Headers
 
 Applied via `SecurityHeadersMiddleware` in `app/middleware.py`:
-- `Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'`
+- `Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'` — plus `form-action 'self' <browser-origin>` and `frame-src 'self' <browser-origin>` appended when `QBIT_BROWSER_HOST` is set and passes origin validation.
 - `X-Frame-Options: DENY`
 - `X-Content-Type-Options: nosniff`
+- `X-XSS-Protection: 0` (modern browsers; disables the legacy auditor)
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains` — only set when `SECURE_COOKIES=true` (HSTS over HTTP would cause upgrade loops).
 
 ### Same-Origin Only
 
@@ -146,6 +149,7 @@ All configuration is via environment variables. See `.env.example` for the full 
 | `ADMIN_PASSWORD` | Recommended | Bootstrap admin password (setup wizard if omitted) |
 | `SECURE_COOKIES` | No | Set `true` behind HTTPS proxy |
 | `REFRESH_RATE` | No | Initial dashboard polling interval in seconds (default: `5`, range: 2–300). Seeds `app_settings` on first run only; admin panel value takes precedence on subsequent starts |
+| `ENABLE_BROWSER_AUTH` | No | Opt-in admin feature (default: `false`). When true, `/api/qbit/browser-auth-creds` returns qBit credentials to the admin browser for IP-ban recovery. Off: endpoint returns 404 and the admin UI hides the form |
 
 ## CI/CD
 

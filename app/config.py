@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     # Cookie security (disable Secure flag for local dev without HTTPS)
     SECURE_COOKIES: bool = False
 
+    # Admin-only feature that returns qBit credentials to the browser so the
+    # admin can trigger a qBit login from their own IP (useful for IP-ban
+    # recovery). Off by default because it breaks the "credentials stay on
+    # the server" model. Enable only if you understand the trade-off.
+    ENABLE_BROWSER_AUTH: bool = False
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @model_validator(mode="after")
@@ -67,13 +73,10 @@ class Settings(BaseSettings):
                 os.close(fd)
             logger.info("SECRET_KEY auto-generated and saved to %s", key_file)
         except OSError as exc:
-            # Fall back to an ephemeral key (lost on restart)
-            self.SECRET_KEY = secrets.token_hex(32)
-            logger.warning(
-                "Could not persist SECRET_KEY to %s (%s); using ephemeral key",
-                key_file,
-                exc,
-            )
+            raise RuntimeError(
+                f"Cannot persist SECRET_KEY to {key_file}: {exc}. "
+                "Set SECRET_KEY in env or fix data volume permissions."
+            ) from exc
 
         return self
 

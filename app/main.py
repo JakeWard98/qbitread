@@ -98,7 +98,7 @@ async def _get_user_from_token(request: Request) -> User | None:
     return User.from_row(row)
 
 
-app = FastAPI(title="qBitRead", docs_url=None, redoc_url=None, lifespan=lifespan)
+app = FastAPI(title="qBitRead", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
 # Middleware (applied in reverse order)
 app.add_middleware(CSRFMiddleware)

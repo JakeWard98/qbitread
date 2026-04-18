@@ -101,6 +101,7 @@ Pre-releases do **not** update `latest`.
 | `LOGIN_RATE_LIMIT` | No | `5` | Max login attempts per minute per IP |
 | `TRUSTED_PROXIES` | No | — | Comma-separated list of trusted reverse proxy IPs (e.g. `10.0.0.1`). Ensures rate limiting counts the real client IP, not the proxy |
 | `REFRESH_RATE` | No | `5` | Dashboard polling interval in seconds on first run (range: 2–300). Once set, the admin panel value takes precedence — this env var only seeds the default for new deployments |
+| `ENABLE_BROWSER_AUTH` | No | `false` | Opt-in admin feature that returns qBit credentials to the browser so an admin can trigger a login from their own IP (helps resolve qBit IP bans). When `false` (the default) `/api/qbit/browser-auth-creds` returns 404 and the form is hidden. Enabling this means the qBit credentials leave the server |
 
 ## User Roles
 
@@ -155,7 +156,7 @@ If your reverse proxy runs on a different IP from the container, set `TRUSTED_PR
 - **Rate limiting** — 5 login attempts per minute per IP
 - **Password policy** — enforced on all new accounts; weak existing passwords are flagged
 - **Security headers** — CSP, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy
-- **Credential isolation** — qBittorrent credentials exist only on the server, never sent to the browser
+- **Credential isolation** — by default, qBittorrent credentials exist only on the server and are never sent to the browser. The opt-in `ENABLE_BROWSER_AUTH` feature is the one documented exception
 - **Non-root container** — runs as `appuser` with no login shell
 - **Auto-generated secrets** — `SECRET_KEY` created and persisted on first run if not provided
 
@@ -165,7 +166,7 @@ If your reverse proxy runs on a different IP from the container, set `TRUSTED_PR
 Check that `QBIT_HOST` is reachable from the container. If using Docker, use the container/service name (e.g. `http://qbittorrent:8080`), not `localhost`.
 
 **"IP Banned"**
-qBittorrent bans IPs after too many failed login attempts. qBitRead detects this and pauses retries for 15 minutes. Verify your `QBIT_USERNAME` and `QBIT_PASSWORD` are correct, then use the admin panel's "Retry Login" button.
+qBittorrent bans IPs after too many failed login attempts. qBitRead detects this and pauses retries for 15 minutes. Verify your `QBIT_USERNAME` and `QBIT_PASSWORD` are correct, then use the admin panel's "Retry Login" button. If the ban is tied to your container's IP rather than your browser's, open qBittorrent directly and log in there to clear it — or set `ENABLE_BROWSER_AUTH=true` to enable the in-app Browser Auth form (trade-off: credentials are sent to the admin browser).
 
 **Dashboard not loading**
 Check browser console for errors. Ensure your reverse proxy is forwarding headers correctly and that `SECURE_COOKIES` matches your setup (true for HTTPS, false for HTTP).
