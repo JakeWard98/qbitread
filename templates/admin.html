@@ -25,30 +25,32 @@
         <button class="btn-primary" id="btn-retry-login" style="margin-left:auto">Retry Login</button>
       </div>
       <div id="qbit-status-msg" style="font-size:12px;color:var(--muted)"></div>
-      <hr style="border:none;border-top:1px solid var(--border)">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:2px">
-        Browser Auth — send credentials directly from your browser to qBittorrent to help resolve IP bans.
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-group" style="margin-bottom:0">
-          <label for="qbit-url">qBit URL</label>
-          <input id="qbit-url" type="text" placeholder="http://localhost:8080" autocomplete="off" style="width:220px">
+      <div id="browser-auth-block" style="display:none;flex-direction:column;gap:14px">
+        <hr style="border:none;border-top:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:2px">
+          Browser Auth — send credentials directly from your browser to qBittorrent to help resolve IP bans.
         </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label for="qbit-user">Username</label>
-          <input id="qbit-user" type="text" placeholder="admin" autocomplete="off" style="width:120px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="margin-bottom:0">
+            <label for="qbit-url">qBit URL</label>
+            <input id="qbit-url" type="text" placeholder="http://localhost:8080" autocomplete="off" style="width:220px">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label for="qbit-user">Username</label>
+            <input id="qbit-user" type="text" placeholder="admin" autocomplete="off" style="width:120px">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label for="qbit-pass">Password</label>
+            <input id="qbit-pass" type="password" placeholder="password" autocomplete="off" style="width:140px">
+          </div>
+          <button class="btn-ghost" id="btn-autofill" title="Auto-fill credentials from server config">Auto-fill</button>
         </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label for="qbit-pass">Password</label>
-          <input id="qbit-pass" type="password" placeholder="password" autocomplete="off" style="width:140px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-primary" id="btn-browser-auth">Send Browser Auth</button>
+          <button class="btn-ghost" id="btn-open-webui">Open qBit Web UI</button>
         </div>
-        <button class="btn-ghost" id="btn-autofill" title="Auto-fill credentials from server config">Auto-fill</button>
+        <div id="browser-auth-msg" style="font-size:12px;min-height:18px"></div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn-primary" id="btn-browser-auth">Send Browser Auth</button>
-        <button class="btn-ghost" id="btn-open-webui">Open qBit Web UI</button>
-      </div>
-      <div id="browser-auth-msg" style="font-size:12px;min-height:18px"></div>
     </div>
 
     <h2 style="margin-top:24px">Dashboard Settings</h2>
@@ -101,6 +103,6 @@
       <tbody id="users-tbody"></tbody>
     </table>
   </div>
-  <script data-cfasync="false" src="/static/js/admin.js?v=2"></script>
+  <script data-cfasync="false" src="/static/js/admin.js?v=3"></script>
 </body>
 </html>

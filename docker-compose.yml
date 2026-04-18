@@ -19,8 +19,15 @@ services:
       - LOGIN_RATE_LIMIT=${LOGIN_RATE_LIMIT:-5}
       - TRUSTED_PROXIES=${TRUSTED_PROXIES:-}
       - REFRESH_RATE=${REFRESH_RATE:-5}
+      - ENABLE_BROWSER_AUTH=${ENABLE_BROWSER_AUTH:-false}
     volumes:
       - qbitread_data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/login', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   qbitread_data:
