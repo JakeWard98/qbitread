@@ -367,11 +367,15 @@
     }
 
     /* ── Filter ── */
+    const FILTER_STORAGE_KEY = 'qbitread:filter';
+    const VALID_FILTERS = ['all', 'downloading', 'seeding', 'completed', 'running', 'stopped', 'active', 'stalled'];
+
     document.querySelectorAll('.filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         filterState = btn.dataset.filter;
+        try { sessionStorage.setItem(FILTER_STORAGE_KEY, filterState); } catch {}
         const mf = $('mobile-filter');
         if (mf) mf.value = filterState;
         render();
@@ -383,12 +387,25 @@
     if (mobileFilter) {
       mobileFilter.addEventListener('change', () => {
         filterState = mobileFilter.value;
+        try { sessionStorage.setItem(FILTER_STORAGE_KEY, filterState); } catch {}
         document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
         const activeBtn = document.querySelector('.filter-btn[data-filter="' + filterState + '"]');
         if (activeBtn) activeBtn.classList.add('active');
         render();
       });
     }
+
+    /* ── Restore saved filter from previous navigation ── */
+    try {
+      const savedFilter = sessionStorage.getItem(FILTER_STORAGE_KEY);
+      if (savedFilter && VALID_FILTERS.includes(savedFilter) && savedFilter !== filterState) {
+        filterState = savedFilter;
+        document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+        const activeBtn = document.querySelector('.filter-btn[data-filter="' + savedFilter + '"]');
+        if (activeBtn) activeBtn.classList.add('active');
+        if (mobileFilter) mobileFilter.value = savedFilter;
+      }
+    } catch {}
     const mobileFilterDir = $('mobile-filter-dir');
     if (mobileFilterDir) {
       mobileFilterDir.addEventListener('click', () => {
