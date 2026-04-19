@@ -32,31 +32,26 @@ A lightweight, read-only Docker web app for monitoring your qBittorrent instance
 ## Architecture
 
 ```mermaid
-flowchart LR
-    subgraph Browser["Browser (same-origin only)"]
-        UI["Dashboard · Login · Admin · Setup<br/>templates/ + static/js/ (vanilla JS)"]
-    end
+flowchart TB
+    UI["Browser (same-origin)<br/>Dashboard · Login · Admin · Setup"]
 
     subgraph Backend["FastAPI backend"]
         direction TB
-        MW["Middleware chain<br/>SecurityHeaders → RateLimit → CSRF"]
-        AuthR["auth/router.py<br/>/api/auth/* · JWT cookie · bcrypt"]
-        QbitR["qbit/router.py<br/>/api/torrents · /api/transfer<br/>/api/qbit/* (admin)"]
-        Client["qbit/client.py<br/>httpx + circuit breaker"]
+        MW["Middleware: SecurityHeaders → RateLimit → CSRF"]
+        AuthR["auth/router.py — /api/auth/* (JWT + bcrypt)"]
+        QbitR["qbit/router.py — /api/torrents · /api/transfer · /api/qbit/*"]
+        Client["qbit/client.py — httpx + circuit breaker"]
     end
 
-    subgraph Data["Persistent volume /app/data"]
-        DB[("qbitread.db<br/>users · app_settings")]
-        Key[[".secret_key (0o600)"]]
-    end
-
+    DB[("qbitread.db<br/>/app/data")]
+    Key[[".secret_key"]]
     Qbit[("qBittorrent Web API")]
 
-    UI -- "HttpOnly JWT + CSRF header" --> MW
+    UI -- "JWT + CSRF" --> MW
     MW --> AuthR
     MW --> QbitR
     AuthR --> DB
-    AuthR -. signs/verifies .-> Key
+    AuthR -. signs .-> Key
     QbitR --> Client
     Client -- "server-side creds" --> Qbit
 ```
