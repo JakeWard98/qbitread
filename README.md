@@ -29,6 +29,26 @@ A lightweight, read-only Docker web app for monitoring your qBittorrent instance
 - **Read-only by design** — monitors torrents only; never modifies, adds, or deletes them
 - **Credential isolation** — qBittorrent credentials never leave the server
 
+## Screenshots
+
+### Desktop
+
+**Sign in**
+
+![Sign in page](docs/images/login.png)
+
+**Dashboard**
+
+![Dashboard view](docs/images/dashboard.png)
+
+**Active torrents**
+
+![Active torrents filter](docs/images/active.png)
+
+**Admin panel**
+
+![Admin panel](docs/images/admin.png)
+
 ## Architecture
 
 ```mermaid
