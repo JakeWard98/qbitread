@@ -1,6 +1,6 @@
 <div align="center">
   
-[![CodeQL](https://github.com/JakeWard98/qbitread/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/JakeWard98/qbitread/actions/workflows/github-code-scanning/codeql) ![GitHub Release](https://img.shields.io/github/v/release/JakeWard98/qBitRead?color=purple&label=Release) ![GitHub License](https://img.shields.io/github/license/JakeWard98/qBitRead?label=License) ![Image Size](https://img.shields.io/badge/Image%20Size-139.6MB-blue) ![Tech Stack](https://img.shields.io/badge/Tech%20Stack-Python%20%7C%20HTML%20%7C%20CSS%20%7C%20JavaScript-blue?color=orange)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/JakeWard98/qbitread/github-code-scanning/codeql?label=CodeQL&logo=github&logoColor=white)](https://github.com/JakeWard98/qbitread/actions/workflows/github-code-scanning/codeql) ![GitHub Release](https://img.shields.io/github/v/release/JakeWard98/qBitRead?color=purple&label=Release&logo=github&logoColor=white) ![GitHub License](https://img.shields.io/github/license/JakeWard98/qBitRead?label=License&logo=opensourceinitiative&logoColor=white) ![Image Size](https://img.shields.io/badge/Image%20Size-139.6MB-blue?logo=docker&logoColor=white) ![Tech Stack](https://img.shields.io/badge/Tech%20Stack-Python%20%7C%20HTML%20%7C%20CSS%20%7C%20JavaScript-blue?color=orange&logo=python&logoColor=white)
 
 </div>
 
