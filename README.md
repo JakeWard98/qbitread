@@ -31,9 +31,24 @@ A lightweight, read-only Docker web app for monitoring your qBittorrent instance
 
 ## Architecture
 
-```
-Browser  ──>  FastAPI (auth + proxy)  ──>  qBittorrent API
-              credentials stay here
+```mermaid
+flowchart TB
+    UI["Browser (same-origin)<br/>Dashboard · Login · Admin · Setup"]
+    MW["FastAPI middleware<br/>SecurityHeaders → RateLimit → CSRF"]
+    AuthR["auth/router.py — /api/auth/* (JWT + bcrypt)"]
+    QbitR["qbit/router.py — /api/torrents · /api/transfer · /api/qbit/*"]
+    Client["qbit/client.py — httpx + circuit breaker"]
+    DB[("qbitread.db<br/>/app/data")]
+    Key[".secret_key"]
+    Qbit[("qBittorrent Web API")]
+
+    UI -- "JWT + CSRF" --> MW
+    MW --> AuthR
+    MW --> QbitR
+    AuthR --> DB
+    AuthR -. signs .-> Key
+    QbitR --> Client
+    Client -- "server-side creds" --> Qbit
 ```
 
 The backend is the only component that communicates with qBittorrent. The browser never talks to qBittorrent directly — all requests are proxied through authenticated FastAPI endpoints.
