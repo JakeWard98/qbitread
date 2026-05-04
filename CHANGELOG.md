@@ -71,6 +71,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CHANGELOG.md` — this file.
 
 ### Dependencies
+- **2026-05-04 dependency refresh.** Bumped pinned deps to current PyPI
+  latest. Resolver picks `starlette 1.0.0` transitively under the existing
+  `>=0.49.1` floor (FastAPI 0.136.1 declares `starlette>=0.46.0`). Smoke
+  test in clean venv: imports OK, uvicorn boots, `/login` returns 200,
+  `/api/auth/login` issues JWT + CSRF cookies and emits all security
+  headers, `/api/auth/me` round-trips with the cookie, `/api/torrents`
+  returns the expected structured 502 when qBit is unreachable (circuit
+  breaker path executes cleanly).
+  - fastapi 0.136.0 → **0.136.1**
+  - uvicorn 0.44.0 → **0.46.0**
+  - pydantic-settings 2.13.1 → **2.14.0** (pulls in `typing-inspection>=0.4.0`)
+  - starlette, httpx, PyJWT, bcrypt, aiosqlite already at latest
 - fastapi 0.135.3 → **0.136.0**
 - uvicorn 0.34.2 → **0.44.0**
 - bcrypt 4.3.0 → **5.0.0** (API-compatible; `$2b$12$` hash prefix preserved)
