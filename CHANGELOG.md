@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-05-04 dependency re-audit.** Third consecutive clean run.
+  Manual GHSA / NVD cross-check across every pinned dep in
+  `requirements.txt` (`fastapi 0.136.0`, `starlette>=0.49.1`,
+  `uvicorn 0.44.0`, `httpx 0.28.1`, `PyJWT 2.12.1`, `bcrypt 5.0.0`,
+  `aiosqlite 0.22.1`, `pydantic-settings 2.13.1`) returned **0 known
+  vulnerabilities** at Critical/High/Moderate/Low. No new advisories
+  affecting any pinned dep have been published in the week since the
+  2026-04-27 re-audit. Confirmed:
+  - `starlette>=0.49.1` still closes CVE-2025-62727 (FileResponse
+    Range-header O(n²) DoS, High) and CVE-2025-54121 (multipart-parsing
+    event-loop block on rollover-to-disk, Moderate; fixed upstream in
+    0.47.2).
+  - `PyJWT 2.12.1` still closes CVE-2026-32597 (`crit` header parameter
+    not validated, High; fixed upstream in 2.12.0).
+  No code changes required.
 - **2026-04-27 dependency re-audit.** Second consecutive clean run of
   `pip-audit` and a manual GHSA cross-check across every pinned dep in
   `requirements.txt` (`fastapi 0.136.0`, `starlette>=0.49.1`,
