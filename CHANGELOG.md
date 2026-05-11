@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-05-11 dependency re-audit.** Fourth consecutive clean run.
+  Manual GHSA / NVD cross-check across every pinned dep in
+  `requirements.txt` (`fastapi 0.136.1`, `starlette>=0.49.1`,
+  `uvicorn 0.46.0`, `httpx 0.28.1`, `PyJWT 2.12.1`, `bcrypt 5.0.0`,
+  `aiosqlite 0.22.1`, `pydantic-settings 2.14.0`) returned **0 known
+  vulnerabilities** at Critical/High/Moderate/Low. No new advisories
+  affecting any pinned dep have been published in the week since the
+  2026-05-04 re-audit. Confirmed:
+  - `starlette>=0.49.1` still closes CVE-2025-62727 (FileResponse
+    Range-header O(n²) DoS, High) and CVE-2025-54121 (multipart-parsing
+    event-loop block on rollover-to-disk, Moderate; fixed upstream in
+    0.47.2).
+  - `PyJWT 2.12.1` still closes CVE-2026-32597 (`crit` header parameter
+    not validated, High; fixed upstream in 2.12.0).
+  - Cross-checked CVE-2026-40347 (`python-multipart` DoS via large
+    preamble / epilogue, Moderate; fixed upstream in 0.0.26): **not
+    applicable.** qBitRead does not declare `python-multipart` and does
+    not use any `fastapi.Form` / `UploadFile` endpoints — login is JSON
+    via the Pydantic `LoginRequest` schema, so the dep is never
+    installed at runtime. Verified with `grep -RIn "Form\|UploadFile\|multipart"
+    app/` → no matches.
+  No code or dependency-version changes required.
 - **2026-05-04 dependency re-audit.** Third consecutive clean run.
   Manual GHSA / NVD cross-check across every pinned dep in
   `requirements.txt` (`fastapi 0.136.0`, `starlette>=0.49.1`,
