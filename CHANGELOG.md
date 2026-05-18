@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-05-18 dependency re-audit.** Fourth consecutive clean run.
+  `pip-audit` against a fresh venv of the (now-bumped) pinned set
+  (`fastapi 0.136.1`, `starlette>=0.49.1` → resolved `1.0.0`,
+  `uvicorn 0.47.0`, `httpx 0.28.1`, `PyJWT 2.12.1`, `bcrypt 5.0.0`,
+  `aiosqlite 0.22.1`, `pydantic-settings 2.14.1`) returned **0 known
+  vulnerabilities** at Critical/High/Moderate/Low. Manual GHSA / NVD
+  cross-check across every direct and transitive dep (`anyio 4.13.0`,
+  `certifi 2026.4.22`, `h11 0.16.0`, `httpcore 1.0.9`,
+  `pydantic 2.13.4`, `pydantic-core 2.46.4`, `typing-inspection 0.4.2`,
+  `python-dotenv 1.2.2`) returned no new advisories in the two weeks
+  since the 2026-05-04 re-audit. No GitHub Security advisories or
+  Dependabot alerts open against the repo. Confirmed:
+  - `starlette>=0.49.1` still closes CVE-2025-62727 (FileResponse
+    Range-header O(n²) DoS, High) and CVE-2025-54121 (multipart-parsing
+    event-loop block on rollover-to-disk, Moderate).
+  - `PyJWT 2.12.1` still closes CVE-2026-32597 (`crit` header parameter
+    not validated, High).
+  Only safe maintenance bumps applied — see Dependencies below.
 - **2026-05-04 dependency re-audit.** Third consecutive clean run.
   Manual GHSA / NVD cross-check across every pinned dep in
   `requirements.txt` (`fastapi 0.136.0`, `starlette>=0.49.1`,
@@ -71,6 +89,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CHANGELOG.md` — this file.
 
 ### Dependencies
+- **2026-05-18 dependency refresh.** Safe maintenance bumps to current
+  PyPI latest. Resolver still picks `starlette 1.0.0` transitively under
+  the existing `>=0.49.1` floor. Smoke test in clean venv: imports OK,
+  `pip-audit` clean, uvicorn boots, JWT + CSRF cookie issuance unchanged,
+  bcrypt `$2b$12$` hash prefix preserved.
+  - uvicorn 0.46.0 → **0.47.0**
+  - pydantic-settings 2.14.0 → **2.14.1**
+  - fastapi, starlette, httpx, PyJWT, bcrypt, aiosqlite already at latest
 - **2026-05-04 dependency refresh.** Bumped pinned deps to current PyPI
   latest. Resolver picks `starlette 1.0.0` transitively under the existing
   `>=0.49.1` floor (FastAPI 0.136.1 declares `starlette>=0.46.0`). Smoke
