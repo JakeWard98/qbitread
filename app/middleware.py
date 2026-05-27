@@ -115,7 +115,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._hits[ip] = [t for t in self._hits[ip] if t > cutoff]
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path == self.path and request.method == "POST":
+        # Match on the raw ASGI scope path, not request.url.path: a crafted Host
+        # header can poison request.url.path (GHSA-86qp-5c8j-p5mr / CVE-2026-48710)
+        # and let an attacker slip past the login rate limiter.
+        if request.scope["path"] == self.path and request.method == "POST":
             ip = self._get_client_ip(request)
             now = time.time()
 
@@ -142,11 +145,15 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if request.method in self.SAFE_METHODS:
             return await call_next(request)
 
-        if request.url.path in self.EXEMPT_PATHS:
+        # Match on the raw ASGI scope path, not request.url.path: a crafted Host
+        # header can poison request.url.path (GHSA-86qp-5c8j-p5mr / CVE-2026-48710)
+        # and slip a mutating /api/ request past CSRF validation.
+        path = request.scope["path"]
+        if path in self.EXEMPT_PATHS:
             return await call_next(request)
 
         # Only enforce CSRF on authenticated API endpoints
-        if not request.url.path.startswith("/api/"):
+        if not path.startswith("/api/"):
             return await call_next(request)
 
         cookie_token = request.cookies.get("csrf_token")
