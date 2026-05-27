@@ -8,6 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-05-27 dependency re-audit — three new Starlette advisories fixed.**
+  `pip-audit` against a fresh venv resolved the pinned set to
+  `starlette 1.1.0` (latest) and reported **0 known vulnerabilities**, but a
+  manual GHSA / NVD cross-check found three advisories published 2026-05-21…23
+  — *after* the 2026-05-18 audit — affecting Starlette versions the previous
+  `>=0.49.1` floor still permitted. Only one (the Host-header issue) had a
+  `PYSEC`/OSV record at audit time, so the automated scan alone would have
+  missed the other two:
+  - **GHSA-86qp-5c8j-p5mr / CVE-2026-48710** — missing `Host` header
+    validation poisons `request.url.path`, bypassing path-based security
+    checks (Moderate, CVSS 6.5; fixed 1.0.1). **Reachable here:** both
+    `RateLimitMiddleware` (login limiter) and `CSRFMiddleware` (exempt-path
+    and `/api/` enforcement) keyed their decisions off `request.url.path`.
+  - **GHSA-wqp7-x3pw-xc5r** — `StaticFiles` resolves UNC paths on Windows,
+    enabling SSRF / NTLM-credential theft via forced SMB auth (High, CVSS
+    7.5; fixed 1.1.0). qBitRead mounts `StaticFiles`, but the official
+    deployment is Linux/Docker, where UNC paths are not absolute — not
+    exploitable there; the floor bump closes it for any Windows dev host.
+  - **GHSA-x746-7m8f-x49c** — `HTTPEndpoint` dispatches the client method via
+    `getattr`, exposing non-handler attributes (Moderate, CVSS 5.3; fixed
+    1.1.0). Not applicable: qBitRead uses FastAPI function routes, no
+    `HTTPEndpoint` subclasses. Closed by the upgrade regardless.
+  Raised the `starlette` floor `>=0.49.1` → **`>=1.1.0`** (highest fix) to
+  guarantee the patched framework, and hardened both middleware to read the
+  raw ASGI `scope["path"]` instead of `request.url.path` so path-based
+  security checks match the path the router actually dispatches even if a
+  vulnerable Starlette is ever resolved. All other pinned deps
+  (`fastapi 0.136.1`, `uvicorn 0.47.0`, `httpx 0.28.1`, `PyJWT 2.12.1`,
+  `bcrypt 5.0.0`, `aiosqlite 0.22.1`, `pydantic-settings 2.14.1`) and
+  transitives remain clean. Smoke-tested in a clean venv: imports OK,
+  `pip-audit` clean, `/login` 200, CSRF still blocks a token-less `/api/`
+  POST sent with a crafted `Host` header, login stays CSRF-exempt, and the
+  login rate limiter still trips at the configured threshold.
 - **2026-05-18 dependency re-audit.** Fourth consecutive clean run.
   `pip-audit` against a fresh venv of the (now-bumped) pinned set
   (`fastapi 0.136.1`, `starlette>=0.49.1` → resolved `1.0.0`,
@@ -89,6 +122,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CHANGELOG.md` — this file.
 
 ### Dependencies
+- **2026-05-27 security bump.** `starlette` floor `>=0.49.1` → **`>=1.1.0`**
+  to close GHSA-86qp-5c8j-p5mr / CVE-2026-48710, GHSA-wqp7-x3pw-xc5r and
+  GHSA-x746-7m8f-x49c (see Security above). The resolver already picked
+  `starlette 1.1.0` under the old floor, so this is a guarantee — not a
+  runtime change. FastAPI 0.136.1 (declares `starlette>=0.46.0`) resolves
+  cleanly against the new floor. All other pins unchanged.
 - **2026-05-18 dependency refresh.** Safe maintenance bumps to current
   PyPI latest. Resolver still picks `starlette 1.0.0` transitively under
   the existing `>=0.49.1` floor. Smoke test in clean venv: imports OK,
@@ -119,6 +158,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   roundtrip, full uvicorn boot, and endpoint/header checks all pass.
 
 ### Changed
+- `app/middleware.py`: `RateLimitMiddleware` and `CSRFMiddleware` now read the
+  raw ASGI `scope["path"]` rather than `request.url.path` for their
+  security-relevant path checks, matching the path the router dispatches and
+  removing any dependence on Host-header parsing (defense-in-depth for
+  CVE-2026-48710).
 - `CLAUDE.md`: Security Headers section now documents the actual CSP emitted
   by `app/middleware.py` (including `frame-ancestors 'none'` and the
   dynamically-added `form-action` / `frame-src` for `QBIT_BROWSER_HOST`), plus
