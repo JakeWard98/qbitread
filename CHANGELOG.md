@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-06-01 dependency re-audit — clean.** Fresh `pip-audit` against a
+  clean venv of the pinned set (`fastapi 0.136.1`, `starlette>=1.1.0`
+  resolved to `1.1.0`, `uvicorn 0.47.0`, `httpx 0.28.1`, `PyJWT 2.12.1`,
+  `bcrypt 5.0.0`, `aiosqlite 0.22.1`, `pydantic-settings 2.14.1`)
+  returned **0 known vulnerabilities** at Critical/High/Moderate/Low.
+  Manual GHSA / NVD cross-check across every direct and notable
+  transitive dep (`anyio 4.13.0`, `certifi 2026.4.22`, `h11 0.16.0`,
+  `httpcore 1.0.9`, `pydantic 2.13.4`, `pydantic-core 2.46.4`,
+  `typing-inspection 0.4.2`, `python-dotenv 1.2.2`) returned no new
+  advisories in the five days since the 2026-05-27 re-audit. No GitHub
+  Security advisories or Dependabot alerts open against the repo.
+  Confirmed still patched:
+  - `starlette>=1.1.0` still closes GHSA-86qp-5c8j-p5mr / CVE-2026-48710
+    (BadHost — Host-header path poisoning, Moderate),
+    GHSA-wqp7-x3pw-xc5r (StaticFiles UNC-path SSRF, High) and
+    GHSA-x746-7m8f-x49c (HTTPEndpoint getattr dispatch, Moderate).
+  - `starlette>=1.1.0` still closes CVE-2025-62727 (FileResponse
+    Range-header O(n²) DoS, High) and CVE-2025-54121 (multipart-parsing
+    event-loop block, Moderate).
+  - `PyJWT 2.12.1` still closes CVE-2026-32597 (`crit` header parameter
+    not validated, High).
+  No code or dependency-version changes required.
 - **2026-05-27 dependency re-audit — three new Starlette advisories fixed.**
   `pip-audit` against a fresh venv resolved the pinned set to
   `starlette 1.1.0` (latest) and reported **0 known vulnerabilities**, but a
