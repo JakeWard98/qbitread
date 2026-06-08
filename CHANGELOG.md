@@ -30,6 +30,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `PyJWT 2.12.1` still closes CVE-2026-32597 (`crit` header parameter
     not validated, High).
   No code or dependency-version changes required.
+- **2026-06-08 dependency re-audit — clean.** `pip-audit` against a fresh
+  venv of the pinned set (`fastapi 0.136.1`, `starlette>=1.1.0` → resolved
+  `1.2.1`, `uvicorn 0.47.0`, `httpx 0.28.1`, `PyJWT 2.12.1`, `bcrypt 5.0.0`,
+  `aiosqlite 0.22.1`, `pydantic-settings 2.14.1`) returned **0 known
+  vulnerabilities** at Critical/High/Moderate/Low. Manual GHSA / NVD /
+  OSV cross-check across every direct dep and notable transitive returned
+  no new advisories in the week since the 2026-06-01 entry. No GitHub
+  Security advisories or Dependabot alerts open against the repo. Confirmed
+  still patched:
+  - `starlette>=1.1.0` continues to close GHSA-86qp-5c8j-p5mr /
+    CVE-2026-48710 (BadHost — Host-header `request.url.path` poisoning,
+    Moderate, CVSS 6.5; fixed 1.0.1), GHSA-wqp7-x3pw-xc5r (StaticFiles
+    UNC-path SSRF on Windows, High, CVSS 7.5; fixed 1.1.0),
+    GHSA-x746-7m8f-x49c (HTTPEndpoint `getattr` dispatch, Moderate,
+    CVSS 5.3; fixed 1.1.0), CVE-2025-62727 (FileResponse Range-header
+    O(n²) DoS, High) and CVE-2025-54121 (multipart-parsing event-loop
+    block, Moderate). Latest PyPI is `starlette 1.2.1` (released
+    2026-05-31); the resolver already picks it under the existing floor,
+    so no requirements.txt bump is required.
+  - `PyJWT 2.12.1` continues to close CVE-2026-32597 (`crit` header
+    parameter not validated, High, CVSS 7.5; fixed 2.12.0). `PyJWT 2.13.0`
+    is available but only adds an `InsecureKeyLengthWarning` quality
+    enhancement — no new CVE forces the bump.
+  - `fastapi 0.136.3` is the latest PyPI release (2026-05-23) but is
+    documentation-only over `0.136.1`; no new CVE forces the bump.
+  No code or dependency-version changes required — pure documentation.
 - **2026-05-27 dependency re-audit — three new Starlette advisories fixed.**
   `pip-audit` against a fresh venv resolved the pinned set to
   `starlette 1.1.0` (latest) and reported **0 known vulnerabilities**, but a
