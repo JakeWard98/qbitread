@@ -9,7 +9,24 @@ fastapi==0.136.1
 starlette>=1.1.0
 uvicorn==0.47.0
 httpx==0.28.1
-PyJWT==2.12.1
+# Bumped 2.12.1 → 2.13.0 to close the 2026-06 PyJWT security release (5 advisories):
+#   GHSA-xgmm-8j9v-c9wx / CVE-2026-48526 — JWK JSON accepted as HMAC secret
+#     (algorithm confusion) (High; CVSS 7.4; fixed 2.13.0)
+#   GHSA-jq35-7prp-9v3f / CVE-2026-48523 — PyJWK alg allow-list bypass
+#     (Moderate; CVSS 5.4; fixed 2.13.0)
+#   GHSA-w7vc-732c-9m39 / CVE-2026-48525 — b64=false detached-payload base64 DoS
+#     (Moderate; CVSS 5.3; fixed 2.13.0)
+#   GHSA-993g-76c3-p5m4 / CVE-2026-48522 — PyJWKClient non-HTTP(S) URI SSRF
+#     (Moderate; CVSS 4.2; fixed 2.13.0)
+#   GHSA-fhv5-28vv-h8m8 / CVE-2026-48524 — PyJWKClient cache wiped on fetch error
+#     (Low; CVSS 3.7; fixed 2.13.0)
+# Still covers CVE-2026-32597 (`crit` header parameter not validated, High).
+PyJWT==2.13.0
 bcrypt==5.0.0
 aiosqlite==0.22.1
-pydantic-settings==2.14.1
+# Bumped 2.14.1 → 2.14.2 to close GHSA-4xgf-cpjx-pc3j — NestedSecretsSettingsSource
+# follows symlinks during file load but not during the secrets_dir_max_size check,
+# allowing read of files outside the secrets dir and bypass of the size cap
+# (Moderate; CVSS 5.3; fixed 2.14.2). Not reachable here (config uses BaseSettings
+# with .env only; nested-secrets source never instantiated) — bumped defensively.
+pydantic-settings==2.14.2
