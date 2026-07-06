@@ -9,7 +9,26 @@ fastapi==0.136.1
 starlette>=1.1.0
 uvicorn==0.47.0
 httpx==0.28.1
-PyJWT==2.12.1
+# PyJWT 2.13.0 closes five 2026-06 advisories surfaced 2026-06-15:
+#   GHSA-xgmm-8j9v-c9wx / CVE-2026-48526 — JWK-JSON-as-HMAC-secret algorithm
+#     confusion when the verifier's algorithms=[] mixes symmetric + asymmetric
+#     (High, CVSS 7.4; fixed 2.13.0). Not reachable here: verify_jwt() pins
+#     algorithms=[settings.JWT_ALGORITHM] (single symmetric HS256).
+#   GHSA-jq35-7prp-9v3f / CVE-2026-48523 — PyJWK alg-mismatch allow-list bypass
+#     (Moderate, CVSS 5.4). Not reachable: no PyJWK / PyJWKClient usage.
+#   GHSA-w7vc-732c-9m39 / CVE-2026-48525 — Detached-JWS b64=false Base64URL DoS
+#     amplifier (Moderate, CVSS 5.3). Not reachable: no detached-JWS path.
+#   GHSA-993g-76c3-p5m4 / CVE-2026-48522 — PyJWKClient non-http(s) URI SSRF
+#     (Moderate, CVSS 4.2). Not reachable: no PyJWKClient usage.
+#   GHSA-fhv5-28vv-h8m8 / CVE-2026-48524 — PyJWKClient cache wipe on fetch error
+#     (Low, CVSS 3.7). Not reachable: no PyJWKClient usage.
+PyJWT==2.13.0
 bcrypt==5.0.0
 aiosqlite==0.22.1
-pydantic-settings==2.14.1
+# pydantic-settings 2.14.2 closes GHSA-4xgf-cpjx-pc3j (Moderate, CVSS 5.3):
+#   NestedSecretsSettingsSource follows symlinks during file load but not during
+#   the secrets_dir_max_size check, letting an attacker with write access to the
+#   secrets dir read outside it and bypass the size cap (CWE-22 / CWE-59 / CWE-400).
+#   Not reachable here: app/config.py uses BaseSettings with env_file=".env" and
+#   never instantiates the nested-secrets source; secrets_nested_subdir stays False.
+pydantic-settings==2.14.2
