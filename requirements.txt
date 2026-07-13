@@ -9,7 +9,22 @@ fastapi==0.136.1
 starlette>=1.1.0
 uvicorn==0.47.0
 httpx==0.28.1
-PyJWT==2.12.1
+# Bumped 2026-07-13 (routine re-audit) to close five PyJWT 2026-06 advisories:
+#   GHSA-xgmm-8j9v-c9wx / CVE-2026-48526 — JWK JSON accepted as HMAC secret
+#     (algorithm confusion when verifier accepts both symmetric + asymmetric algs;
+#     High, CVSS 7.4; fixed 2.13.0). Not reachable here — verify_jwt() pins
+#     algorithms=[settings.JWT_ALGORITHM] to a single symmetric HS256.
+#   GHSA-jq35-7prp-9v3f / CVE-2026-48523 — PyJWK allow-list bypass (Moderate; fixed 2.13.0)
+#   GHSA-w7vc-732c-9m39 / CVE-2026-48525 — b64=false detached-JWS decode DoS (Moderate; fixed 2.13.0)
+#   GHSA-993g-76c3-p5m4 / CVE-2026-48522 — PyJWKClient non-http(s) URI schemes (Moderate; fixed 2.13.0)
+#   GHSA-fhv5-28vv-h8m8 / CVE-2026-48524 — PyJWKClient cache cleared on fetch error (Low; fixed 2.13.0)
+# qBitRead does not use PyJWK / PyJWKClient / detached JWS, but bumped defensively.
+PyJWT==2.13.0
 bcrypt==5.0.0
 aiosqlite==0.22.1
-pydantic-settings==2.14.1
+# Bumped 2026-07-13 (routine re-audit) to close:
+#   GHSA-4xgf-cpjx-pc3j — NestedSecretsSettingsSource symlink-follow bypasses
+#     secrets_dir_max_size cap, allowing out-of-dir file reads (Moderate, CVSS 5.3;
+#     fixed 2.14.2). Not reachable here — app/config.py uses BaseSettings with
+#     env_file only; NestedSecretsSettingsSource is never instantiated.
+pydantic-settings==2.14.2
