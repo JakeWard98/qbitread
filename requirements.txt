@@ -25,4 +25,8 @@ httpx==0.28.1
 PyJWT==2.13.0
 bcrypt==5.0.0
 aiosqlite==0.22.1
-pydantic-settings==2.14.1
+# Floor raised to 2.14.2 to close the 2026-06-19 GHSA-4xgf-cpjx-pc3j advisory
+# (Moderate, CVSS 5.3) — symlink-following / size-check bypass in
+# NestedSecretsSettingsSource. Not reachable in qBitRead (we don't use the
+# nested-secrets source — env-var-only config), but bumped defensively.
+pydantic-settings==2.14.2

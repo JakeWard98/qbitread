@@ -8,6 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-06-22 dependency re-audit — one new advisory fixed.** `pip-audit`
+  against a fresh venv of the pinned set flagged a new advisory published
+  2026-06-19 affecting `pydantic-settings 2.14.1`:
+  - **GHSA-4xgf-cpjx-pc3j** — `NestedSecretsSettingsSource` follows
+    symlinks when loading secret files but does *not* follow them during
+    the `secrets_dir_max_size` check. An attacker with write access to
+    the configured `secrets_dir` could place a symlink pointing outside
+    the directory and have its contents loaded as a secret while
+    bypassing the size cap (Moderate, CVSS 5.3; fixed `2.14.2`).
+    **Not reachable in qBitRead:** `app/config.py` uses
+    `pydantic_settings.BaseSettings` with `SettingsConfigDict(env_file=".env")`
+    — `NestedSecretsSettingsSource` is never instantiated and
+    `secrets_nested_subdir` is left at its default `False`. Bumped
+    defensively to keep the pin current and to remove the advisory from
+    `pip-audit` output.
+
+  The 2026-06-15 audit (filed in PR #62, currently open) flagged five
+  `PyJWT 2.12.1 → 2.13.0` advisories (highest CVSS 7.4); this audit
+  re-confirms those findings and is otherwise complementary — the
+  `pydantic-settings` bump is the only delta beyond what PR #62 already
+  covers. After applying the bump and reusing PR #62's `PyJWT 2.13.0`,
+  `pip-audit` reports **0 known vulnerabilities** across the resolved
+  set. Highest CVSS in this batch is 5.3, well under the >7.5
+  auto-merge threshold, so this PR is left for human review.
 - **2026-06-15 dependency re-audit — four new PyJWT advisories fixed.**
   `pip-audit` against a fresh venv of the pinned set flagged four new
   advisories that post-date the 2026-06-08 clean re-audit, all in
@@ -220,6 +244,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CHANGELOG.md` — this file.
 
 ### Dependencies
+- **2026-06-22 security bump.** `pydantic-settings 2.14.1` →
+  **`2.14.2`** to close GHSA-4xgf-cpjx-pc3j (Moderate, CVSS 5.3 —
+  `NestedSecretsSettingsSource` symlink-following / size-check bypass).
+  Not reachable in qBitRead (no nested-secrets source in use) but bumped
+  defensively. See Security above for the full audit note.
 - **2026-05-27 security bump.** `starlette` floor `>=0.49.1` → **`>=1.1.0`**
   to close GHSA-86qp-5c8j-p5mr / CVE-2026-48710, GHSA-wqp7-x3pw-xc5r and
   GHSA-x746-7m8f-x49c (see Security above). The resolver already picked
