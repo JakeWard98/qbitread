@@ -9,7 +9,20 @@ fastapi==0.136.1
 starlette>=1.1.0
 uvicorn==0.47.0
 httpx==0.28.1
-PyJWT==2.12.1
+# Bumped to 2.13.0 to close four 2026-06 PyJWT advisories:
+#   GHSA-xgmm-8j9v-c9wx / CVE-2026-48526 — HMAC algorithm confusion when
+#     verifier supports both symmetric and asymmetric algs (High, CVSS 7.4).
+#     Not reachable here (HS256 only, single shared secret), but patched
+#     defensively to keep the dep current.
+#   GHSA-w7vc-732c-9m39 / CVE-2026-48525 — detached-JWS Base64URL DoS
+#     amplifier on b64=false (Moderate, CVSS 5.3). Not reachable.
+#   GHSA-993g-76c3-p5m4 / CVE-2026-48522 — PyJWKClient SSRF via file:// /
+#     ftp:// / data:// schemes (Moderate, CVSS 4.2). Not reachable
+#     (no PyJWKClient usage).
+#   GHSA-fhv5-28vv-h8m8 / CVE-2026-48524 — PyJWKClient unbounded outbound
+#     requests via unknown kid (Low, CVSS 3.7). Not reachable.
+# Still covers CVE-2026-32597 (`crit` header parameter not validated).
+PyJWT==2.13.0
 bcrypt==5.0.0
 aiosqlite==0.22.1
 # Floor raised to 2.14.2 to close the 2026-06-19 GHSA-4xgf-cpjx-pc3j advisory
