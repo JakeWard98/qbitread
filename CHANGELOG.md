@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-07-06 dependency re-audit — 6 advisories closed.** `pip-audit`
+  against a fresh venv of the pinned set (`fastapi 0.136.1`,
+  `starlette>=1.1.0`, `uvicorn 0.47.0`, `httpx 0.28.1`, `PyJWT 2.12.1`,
+  `bcrypt 5.0.0`, `aiosqlite 0.22.1`, `pydantic-settings 2.14.1`)
+  surfaced **9 vulnerability records across 2 packages** corresponding to
+  **6 distinct GHSAs** (1 High, 4 Moderate, 1 Low). All 6 are closed by
+  a `PyJWT 2.12.1 → 2.13.0` bump plus a `pydantic-settings 2.14.1 →
+  2.14.2` bump. Post-bump `pip-audit` reports **0 known vulnerabilities**
+  across the resolved set. Highest CVSS is 7.4 (GHSA-xgmm-8j9v-c9wx),
+  below the >7.5 auto-merge threshold — routine leaves this PR for human
+  review. Per-advisory reachability:
+  - **GHSA-xgmm-8j9v-c9wx / CVE-2026-48526** — HMAC algorithm confusion
+    when the verifier's `algorithms=[]` mixes symmetric + asymmetric
+    (High, CVSS 7.4; fixed PyJWT 2.13.0). **Not reachable here:**
+    `verify_jwt()` pins `algorithms=[settings.JWT_ALGORITHM]` to a single
+    symmetric `HS256` with a static `SECRET_KEY`.
+  - **GHSA-jq35-7prp-9v3f / CVE-2026-48523** — PyJWK alg-mismatch
+    allow-list bypass (Moderate, CVSS 5.4; fixed 2.13.0). Not reachable
+    — no `PyJWK` / `PyJWKClient` usage.
+  - **GHSA-w7vc-732c-9m39 / CVE-2026-48525** — detached-JWS `b64=false`
+    Base64URL DoS amplifier (Moderate, CVSS 5.3; fixed 2.13.0). Not
+    reachable — no detached-JWS path.
+  - **GHSA-993g-76c3-p5m4 / CVE-2026-48522** — `PyJWKClient` non-http(s)
+    URI SSRF (Moderate, CVSS 4.2; fixed 2.13.0). Not reachable — no
+    `PyJWKClient` usage.
+  - **GHSA-fhv5-28vv-h8m8 / CVE-2026-48524** — `PyJWKClient` cache wipe
+    on fetch error (Low, CVSS 3.7; fixed 2.13.0). Not reachable — no
+    `PyJWKClient` usage.
+  - **GHSA-4xgf-cpjx-pc3j** — `pydantic-settings` `NestedSecretsSettingsSource`
+    follows symlinks during file load but not during the
+    `secrets_dir_max_size` check (Moderate, CVSS 5.3; fixed 2.14.2). Not
+    reachable — `app/config.py` uses `BaseSettings` with `env_file=".env"`
+    and never instantiates the nested-secrets source;
+    `secrets_nested_subdir` stays `False`.
+  Every direct dep other than PyJWT and pydantic-settings
+  (`fastapi 0.136.1`, `starlette>=1.1.0`, `uvicorn 0.47.0`, `httpx 0.28.1`,
+  `bcrypt 5.0.0`, `aiosqlite 0.22.1`) was cross-checked against GHSA /
+  NVD / OSV since the 2026-06-08 clean entry — no new advisories.
 - **2026-06-29 dependency re-audit — PyJWT + pydantic-settings bumped.**
   `pip-audit` against a fresh venv of the pinned set surfaced **9
   vulnerability records across 2 packages** (5 distinct PyJWT advisories,
@@ -291,6 +329,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CHANGELOG.md` — this file.
 
 ### Dependencies
+- **2026-07-06 security bump.** Closes 6 GHSAs surfaced by the 2026-07-06
+  re-audit (see Security above). Post-bump `pip-audit -r requirements.txt`
+  reports **0 known vulnerabilities**.
+  - PyJWT 2.12.1 → **2.13.0**
+  - pydantic-settings 2.14.1 → **2.14.2**
 - **2026-06-22 security bump.** `pydantic-settings 2.14.1` →
   **`2.14.2`** to close GHSA-4xgf-cpjx-pc3j (Moderate, CVSS 5.3 —
   `NestedSecretsSettingsSource` symlink-following / size-check bypass).
