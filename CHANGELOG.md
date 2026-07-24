@@ -8,6 +8,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-07-13 dependency re-audit — six advisories closed by PyJWT + pydantic-settings bumps.**
+  Scheduled 2026-07-13 re-audit. `pip-audit` against a fresh venv of the pinned
+  set (`fastapi 0.136.1`, `starlette>=1.1.0` → resolved `1.3.1`, `uvicorn 0.47.0`,
+  `httpx 0.28.1`, `PyJWT 2.12.1`, `bcrypt 5.0.0`, `aiosqlite 0.22.1`,
+  `pydantic-settings 2.14.1`) surfaced **9 vulnerability records across 2 packages**
+  — corresponding to **6 distinct GHSAs** (1 High, 4 Moderate, 1 Low), matching
+  the Dependabot count against `main`. All six are closed by
+  `PyJWT 2.12.1 → 2.13.0` and `pydantic-settings 2.14.1 → 2.14.2`. Post-bump
+  `pip-audit -r requirements.txt` reports **0 known vulnerabilities**.
+
+  This is the same advisory set the 2026-06-15, -22, -29 and -07-06 re-audits
+  surfaced (already tracked in still-open PRs #62/#63/#64/#65/#66); no new CVE
+  has landed against the pinned set in the week since. Recording the 2026-07-13
+  run here so the routine's designated branch carries its own audit entry.
+  Highest observed CVSS is 7.4 (GHSA-xgmm-8j9v-c9wx), below the `>7.5`
+  auto-merge threshold, so the PR is left for human review.
+
+  Per-advisory reachability analysis (all six unreachable in qBitRead — bumps
+  are defensive):
+  - **GHSA-xgmm-8j9v-c9wx / CVE-2026-48526** (PyJWT, **High, CVSS 7.4**;
+    fixed 2.13.0) — `HMACAlgorithm.prepare_key` accepted a JWK JSON document
+    as a raw HMAC secret, letting a verifier configured with both symmetric
+    and asymmetric algorithms be forged via algorithm confusion.
+    **Not reachable:** `app/auth/security.py::verify_jwt()` pins
+    `algorithms=[settings.JWT_ALGORITHM]` to a single symmetric `HS256` with
+    a static `SECRET_KEY`; no second asymmetric alg to pivot through.
+  - **GHSA-jq35-7prp-9v3f / CVE-2026-48523** (PyJWT, Moderate, CVSS 5.4;
+    fixed 2.13.0) — `PyJWK` / `PyJWKClient` allow-list bypass.
+    **Not reachable:** no `PyJWK` / `PyJWKClient` usage anywhere in the codebase.
+  - **GHSA-w7vc-732c-9m39 / CVE-2026-48525** (PyJWT, Moderate, CVSS 5.3;
+    fixed 2.13.0) — detached-JWS (`b64=false`) unauthenticated Base64URL decode
+    DoS amplifier. **Not reachable:** no detached-JWS code path.
+  - **GHSA-993g-76c3-p5m4 / CVE-2026-48522** (PyJWT, Moderate, CVSS 4.2;
+    fixed 2.13.0) — `PyJWKClient.fetch_data` accepted non-`http(s)` URIs
+    (`file://`, `ftp://`, `data:`). **Not reachable:** no `PyJWKClient` usage.
+  - **GHSA-fhv5-28vv-h8m8 / CVE-2026-48524** (PyJWT, Low, CVSS 3.7;
+    fixed 2.13.0) — `PyJWKClient` cache wiped on transient fetch error,
+    turning a JWKS outage into app-wide auth failure. **Not reachable:**
+    no `PyJWKClient` usage.
+  - **GHSA-4xgf-cpjx-pc3j** (pydantic-settings, Moderate, CVSS 5.3;
+    fixed 2.14.2) — `NestedSecretsSettingsSource` follows symlinks during file
+    load but skips them in the `secrets_dir_max_size` check, allowing
+    out-of-dir file reads via symlink and size-cap bypass (CWE-22 / CWE-59 /
+    CWE-400). **Not reachable:** `app/config.py` uses `BaseSettings` with
+    `SettingsConfigDict(env_file=".env")`; `NestedSecretsSettingsSource` is
+    never instantiated and `secrets_nested_subdir` remains `False`.
+
+  Cross-checked every other direct dep (`fastapi 0.136.1`, `starlette>=1.1.0`
+  → `1.3.1`, `uvicorn 0.47.0`, `httpx 0.28.1`, `bcrypt 5.0.0`,
+  `aiosqlite 0.22.1`) and notable transitive (`anyio 4.14.2`,
+  `certifi 2026.6.17`, `h11 0.16.0`, `httpcore 1.0.9`, `pydantic 2.13.4`,
+  `pydantic-core 2.46.4`, `typing-inspection 0.4.2`, `python-dotenv 1.2.2`)
+  against GHSA / NVD / OSV — no new advisories in the week since the
+  2026-07-06 re-audit tracked by PR #66. Starlette continues to close
+  GHSA-86qp-5c8j-p5mr / CVE-2026-48710 (BadHost — Host-header
+  `request.url.path` poisoning, Moderate, CVSS 6.5; fixed 1.0.1),
+  GHSA-wqp7-x3pw-xc5r (StaticFiles UNC-path SSRF on Windows, High, CVSS 7.5;
+  fixed 1.1.0), GHSA-x746-7m8f-x49c (HTTPEndpoint `getattr` dispatch,
+  Moderate, CVSS 5.3; fixed 1.1.0), CVE-2025-62727 (FileResponse Range-header
+  O(n²) DoS, High) and CVE-2025-54121 (multipart-parsing event-loop block,
+  Moderate). `.gitignore` reviewed — no changes needed (already covers
+  `__pycache__/`, venvs, `.env*`, `data/`, `*.db`, build/test/IDE artefacts).
+  `CLAUDE.md`, `README.md`, `SECURITY.md` reviewed — no content rendered
+  inaccurate by these bumps; not updated.
 - **2026-07-06 dependency re-audit — 6 advisories closed.** `pip-audit`
   against a fresh venv of the pinned set (`fastapi 0.136.1`,
   `starlette>=1.1.0`, `uvicorn 0.47.0`, `httpx 0.28.1`, `PyJWT 2.12.1`,
@@ -329,6 +393,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CHANGELOG.md` — this file.
 
 ### Dependencies
+- **2026-07-13 security bump.** Closes six 2026-06 advisories (see Security above).
+  `pip-audit -r requirements.txt` post-bump: **0 known vulnerabilities**.
+  - PyJWT 2.12.1 → **2.13.0**
+  - pydantic-settings 2.14.1 → **2.14.2**
 - **2026-07-06 security bump.** Closes 6 GHSAs surfaced by the 2026-07-06
   re-audit (see Security above). Post-bump `pip-audit -r requirements.txt`
   reports **0 known vulnerabilities**.
