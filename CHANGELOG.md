@@ -8,6 +8,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-07-20 dependency re-audit — 7 advisories closed (1 High/7.5, 1 High/7.4, 4 Moderate, 1 Low).**
+  Scheduled routine `pip-audit` against a fresh venv of the pinned set surfaced
+  **9 records / 6 distinct GHSAs** across `PyJWT 2.12.1` and `pydantic-settings
+  2.14.1` (as previously recorded in the still-open #62/#63/#64/#65/#66/#67).
+  Manual GHSA / NVD / OSV cross-check additionally identified **GHSA-82w8-qh3p-5jfq
+  / CVE-2026-54283** (Starlette `request.form()` DoS, High, CVSS 7.5, published
+  2026-06-12, fixed 1.3.1) — pip-audit missed it because the resolver already
+  picked `starlette 1.3.1` under the previous `>=1.1.0` floor, but the loose
+  floor left a regression window. Floor tightened to `>=1.3.1`. All fixes applied:
+    - `PyJWT 2.12.1 → 2.13.0`
+    - `pydantic-settings 2.14.1 → 2.14.2`
+    - `starlette>=1.1.0 → starlette>=1.3.1`
+
+  Post-bump `pip-audit -r requirements.txt` returns **0 known vulnerabilities**
+  against the resolved set (`starlette 1.3.1`, `PyJWT 2.13.0`, `pydantic-settings
+  2.14.2`).
+
+  | Advisory | Package | Severity / CVSS | Fixed in | Reachable in qBitRead? |
+  |---|---|---|---|---|
+  | GHSA-82w8-qh3p-5jfq / CVE-2026-54283 | starlette | **High, 7.5** | 1.3.1 | **No** — no `Form()` / `request.form()` usage; all endpoints consume JSON via Pydantic. Floor bump is defence-in-depth against regression. |
+  | GHSA-xgmm-8j9v-c9wx / CVE-2026-48526 | PyJWT | **High, 7.4** | 2.13.0 | **No** — `verify_jwt()` pins `algorithms=[settings.JWT_ALGORITHM]` to a single symmetric `HS256` with static `SECRET_KEY`; no asymmetric alg to pivot through. |
+  | GHSA-jq35-7prp-9v3f / CVE-2026-48523 | PyJWT | Moderate, 5.4 | 2.13.0 | **No** — no `PyJWK` / `PyJWKClient` usage. |
+  | GHSA-w7vc-732c-9m39 / CVE-2026-48525 | PyJWT | Moderate, 5.3 | 2.13.0 | **No** — no detached-JWS (`b64=false`) path. |
+  | GHSA-993g-76c3-p5m4 / CVE-2026-48522 | PyJWT | Moderate, 4.2 | 2.13.0 | **No** — no `PyJWKClient` usage. |
+  | GHSA-fhv5-28vv-h8m8 / CVE-2026-48524 | PyJWT | Low, 3.7 | 2.13.0 | **No** — no `PyJWKClient` usage. |
+  | GHSA-4xgf-cpjx-pc3j | pydantic-settings | Moderate, 5.3 | 2.14.2 | **No** — `app/config.py` uses `BaseSettings` with `SettingsConfigDict(env_file=".env")`; `NestedSecretsSettingsSource` is never instantiated. |
+
+  Reviewed every other direct dep (`fastapi 0.136.1`, `uvicorn 0.47.0`,
+  `httpx 0.28.1`, `bcrypt 5.0.0`, `aiosqlite 0.22.1`) and notable transitive
+  (`anyio 4.14.2`, `certifi 2026.6.17`, `h11 0.16.0`, `httpcore 1.0.9`,
+  `pydantic 2.13.4`, `pydantic-core 2.46.4`, `typing-inspection 0.4.2`,
+  `python-dotenv 1.2.2`, `idna 3.18`, `urllib3 2.7.0`) against GHSA / NVD /
+  OSV — no additional advisories since the 2026-07-13 re-audit tracked by #67.
+
+  Highest CVSS in this batch is **7.5** (Starlette form DoS), which does not
+  clear the routine's `>7.5` auto-merge threshold — PR left for human review.
+
+### Dependencies
+- Bumped `PyJWT 2.12.1 → 2.13.0` (see 2026-07-20 Security entry above).
+- Bumped `pydantic-settings 2.14.1 → 2.14.2` (see 2026-07-20 Security entry above).
+- Bumped `starlette` floor `>=1.1.0 → >=1.3.1` (see 2026-07-20 Security entry above).
+
 - **2026-07-13 dependency re-audit — six advisories closed by PyJWT + pydantic-settings bumps.**
   Scheduled 2026-07-13 re-audit. `pip-audit` against a fresh venv of the pinned
   set (`fastapi 0.136.1`, `starlette>=1.1.0` → resolved `1.3.1`, `uvicorn 0.47.0`,
