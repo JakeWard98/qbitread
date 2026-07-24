@@ -8,6 +8,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-06-15 dependency re-audit — four new PyJWT advisories fixed.**
+  `pip-audit` against a fresh venv of the pinned set flagged four new
+  advisories that post-date the 2026-06-08 clean re-audit, all in
+  `PyJWT 2.12.1` and all fixed in `2.13.0`. Bumped `PyJWT==2.12.1` →
+  `PyJWT==2.13.0` in `requirements.txt`. After the bump `pip-audit`
+  reports **0 known vulnerabilities** across the resolved set
+  (`fastapi 0.136.1`, `starlette>=1.1.0` → resolved `1.3.1`,
+  `uvicorn 0.47.0`, `httpx 0.28.1`, `PyJWT 2.13.0`, `bcrypt 5.0.0`,
+  `aiosqlite 0.22.1`, `pydantic-settings 2.14.1`). Reachability against
+  qBitRead and patch rationale:
+  - **GHSA-xgmm-8j9v-c9wx / CVE-2026-48526** — HMAC algorithm
+    confusion: verifiers accepting both symmetric and asymmetric algs
+    can be coerced into using an issuer's public JWK string as the
+    HMAC secret, allowing token forgery (High, CVSS 7.4; fixed 2.13.0).
+    **Not reachable here:** `verify_jwt()` in `app/auth/security.py`
+    pins `algorithms=[settings.JWT_ALGORITHM]` and `JWT_ALGORITHM`
+    defaults to `HS256` with a single shared `SECRET_KEY`; no
+    asymmetric verification path exists. Patched defensively to keep
+    the floor current and pre-empt any future config drift.
+  - **GHSA-w7vc-732c-9m39 / CVE-2026-48525** — detached-JWS
+    Base64URL DoS amplifier: with `b64=false` (RFC 7797), PyJWT
+    Base64URL-decodes the middle segment before discarding it for the
+    caller-provided detached payload, letting an attacker amplify CPU
+    / memory work on every verify call (Moderate, CVSS 5.3; affects
+    2.8.0–2.12.1, fixed 2.13.0). **Not reachable here:** qBitRead does
+    not use detached JWS or pass `detached_payload` to `jwt.decode()`.
+  - **GHSA-993g-76c3-p5m4 / CVE-2026-48522** — `PyJWKClient` passes
+    its `uri` straight to `urllib.request.urlopen()`, which still
+    accepts `file://`, `ftp://`, and `data://` schemes, enabling SSRF
+    on the local filesystem and forged-token scenarios when the JWKS
+    URL is attacker-influenced (Moderate, CVSS 4.2; fixed 2.13.0).
+    **Not reachable here:** qBitRead does not use `PyJWKClient` and
+    has no JWKS fetch path — all verification uses the local
+    `SECRET_KEY`.
+  - **GHSA-fhv5-28vv-h8m8 / CVE-2026-48524** — `PyJWKClient
+    .get_signing_key()` forces a fresh HTTP fetch for every unknown
+    `kid`, with no rate limiting, allowing unbounded outbound traffic
+    to the JWKS endpoint (Low, CVSS 3.7; fixed 2.13.0). **Not
+    reachable here:** no `PyJWKClient` usage.
+  Manual GHSA / NVD / OSV cross-check across every direct dep and
+  notable transitive (`anyio 4.13.0`, `certifi 2026.5.20`, `h11 0.16.0`,
+  `httpcore 1.0.9`, `pydantic 2.13.4`, `pydantic-core 2.46.4`,
+  `typing-inspection 0.4.2`, `python-dotenv 1.2.2`) returned no other
+  new advisories in the week since the 2026-06-08 entry. No GitHub
+  Security advisories or Dependabot alerts open against the repo.
+  Confirmed still patched: `starlette>=1.1.0` continues to close
+  GHSA-86qp-5c8j-p5mr / CVE-2026-48710, GHSA-wqp7-x3pw-xc5r,
+  GHSA-x746-7m8f-x49c, CVE-2025-62727 and CVE-2025-54121. PyJWT 2.13.0
+  also continues to cover CVE-2026-32597 (the `crit` header
+  validation High already closed in 2.12.0).
 - **2026-06-01 dependency re-audit — clean.** Fresh `pip-audit` against a
   clean venv of the pinned set (`fastapi 0.136.1`, `starlette>=1.1.0`
   resolved to `1.1.0`, `uvicorn 0.47.0`, `httpx 0.28.1`, `PyJWT 2.12.1`,
