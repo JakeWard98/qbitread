@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-07-24 dependency re-audit — clean, no new advisories.**
+  Scheduled routine audit: `pip-audit` (PyPI advisory DB, mirrors GHSA/OSV)
+  against the full pinned set (`fastapi 0.136.1`, `starlette 1.3.1` — current
+  resolution of the `>=1.3.1` floor, `uvicorn 0.47.0`, `httpx 0.28.1`,
+  `PyJWT 2.13.0`, `bcrypt 5.0.0`, `aiosqlite 0.22.1`, `pydantic-settings 2.14.2`)
+  returns **0 known vulnerabilities**. No advisories published since the
+  2026-07-20 re-audit affect any pinned or transitive dependency. No open
+  Dependabot alerts or security PRs on the repository. Nothing to patch;
+  no version changes.
+
 - **2026-07-20 dependency re-audit — 7 advisories closed (1 High/7.5, 1 High/7.4, 4 Moderate, 1 Low).**
   Scheduled routine `pip-audit` against a fresh venv of the pinned set surfaced
   **9 records / 6 distinct GHSAs** across `PyJWT 2.12.1` and `pydantic-settings
@@ -46,6 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clear the routine's `>7.5` auto-merge threshold — PR left for human review.
 
 ### Dependencies
+- **2026-07-24: `requirements.txt` deduplicated.** Successive security-audit
+  merges (#65–#68) had each appended their own annotated copy of the
+  `PyJWT` / `bcrypt` / `aiosqlite` pins, leaving five identical copies of each
+  pin and ~80 lines of repeated advisory commentary. Collapsed to a single copy
+  of each pin with one condensed security-rationale comment per package.
+  **No version changes** — the resolved dependency set is identical before and
+  after (verified with `pip-audit` and a pin-by-pin diff).
 - Bumped `PyJWT 2.12.1 → 2.13.0` (see 2026-07-20 Security entry above).
 - Bumped `pydantic-settings 2.14.1 → 2.14.2` (see 2026-07-20 Security entry above).
 - Bumped `starlette` floor `>=1.1.0 → >=1.3.1` (see 2026-07-20 Security entry above).
