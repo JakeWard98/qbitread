@@ -59,7 +59,7 @@ requirements.txt        # Python dependencies (pinned)
 ```bash
 # Development (no Docker)
 pip install -r requirements.txt
-export QBIT_PASSWORD=changeme ADMIN_PASSWORD=admin SECURE_COOKIES=false
+export QBIT_HOST=http://localhost:8080 QBIT_PASSWORD=changeme ADMIN_PASSWORD=admin SECURE_COOKIES=false
 uvicorn app.main:app --reload --port 8000
 
 # Production (Docker)
@@ -152,7 +152,7 @@ All configuration is via environment variables. See `.env.example` for the full 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `QBIT_PASSWORD` | Yes | qBittorrent password (server-side only) |
-| `QBIT_HOST` | No | qBittorrent URL (default: `http://localhost:8080`) |
+| `QBIT_HOST` | Yes | qBittorrent Web UI URL (no default; e.g. `http://qbit:8080`) |
 | `SECRET_KEY` | No | JWT signing key (auto-generated if not set) |
 | `ADMIN_PASSWORD` | Recommended | Bootstrap admin password (setup wizard if omitted) |
 | `SECURE_COOKIES` | No | Set `true` behind HTTPS proxy |

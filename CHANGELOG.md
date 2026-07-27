@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-07-27 dependency re-audit — clean, no new advisories.**
+  Scheduled routine audit. `pip-audit` against a fresh venv of the pinned set
+  reports **0 known vulnerabilities** across all resolved packages. Manual
+  cross-check via the PyPI advisory API (mirrors OSV/GHSA) of all 19 direct and
+  transitive package-versions — including the new `fastapi 0.140.0` /
+  `uvicorn 0.51.0` pins (see Dependencies below) — returned 0 advisories.
+  A web sweep for advisories published since the 2026-07-24 re-audit found
+  nothing new affecting the stack; the widely-publicised Starlette "BadHost"
+  auth bypass (GHSA-86qp-5c8j-p5mr / CVE-2026-48710, fixed 1.0.1) has been
+  closed here since the `>=1.3.1` floor landed on 2026-07-20. No open
+  Dependabot alerts or security PRs on the repository. Nothing to patch.
+
 - **2026-07-24 dependency re-audit — clean, no new advisories.**
   Scheduled routine audit: `pip-audit` (PyPI advisory DB, mirrors GHSA/OSV)
   against the full pinned set (`fastapi 0.136.1`, `starlette 1.3.1` — current
@@ -56,6 +68,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clear the routine's `>7.5` auto-merge threshold — PR left for human review.
 
 ### Dependencies
+- **2026-07-27: routine framework refresh — `fastapi 0.136.1 → 0.140.0`,
+  `uvicorn 0.47.0 → 0.51.0`.** Maintenance bumps to current stable (no security
+  content in either release range; both old and new versions audit clean).
+  Starlette still resolves to `1.3.1` under the existing `>=1.3.1` floor.
+  Smoke-tested on the bumped set: app imports and starts, `/login` serves 200,
+  unauthenticated `/api/torrents` still returns 401, and the CSP /
+  `X-Frame-Options` security headers are unchanged.
 - **2026-07-24: `requirements.txt` deduplicated.** Successive security-audit
   merges (#65–#68) had each appended their own annotated copy of the
   `PyJWT` / `bcrypt` / `aiosqlite` pins, leaving five identical copies of each
