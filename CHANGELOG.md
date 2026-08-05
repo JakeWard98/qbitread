@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-08-05 dependency re-audit — clean, no new advisories.**
+  Scheduled routine audit. `pip-audit -r requirements.txt` against a fresh venv
+  of the pinned set reports **0 known vulnerabilities** across all resolved
+  packages — both on the incoming pins and again after the framework refresh
+  below. Manual cross-check via the PyPI advisory API (mirrors OSV/GHSA) of
+  every direct pin (`fastapi`, `starlette` — both the `1.3.1` floor and the
+  now-resolved `1.4.1`, `uvicorn`, `httpx 0.28.1`, `PyJWT 2.13.0`,
+  `bcrypt 5.0.0`, `aiosqlite 0.22.1`, `pydantic-settings 2.14.2`) plus notable
+  transitives (`pydantic`, `anyio`) returned 0 advisories. A web sweep for
+  advisories published since the 2026-07-27 re-audit found nothing new
+  affecting the stack — coverage of the Starlette "BadHost" bypass
+  (CVE-2026-48710) remains closed by the `>=1.3.1` floor. Reviewed declared vs
+  imported dependencies: all eight requirements are in active use, nothing to
+  prune. No open Dependabot alerts, security PRs, or issues on the repository.
+  Nothing to patch; no advisory ≥ 7.5 (or any severity) observed this run.
+
 - **2026-07-27 dependency re-audit — clean, no new advisories.**
   Scheduled routine audit. `pip-audit` against a fresh venv of the pinned set
   reports **0 known vulnerabilities** across all resolved packages. Manual
@@ -68,6 +84,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clear the routine's `>7.5` auto-merge threshold — PR left for human review.
 
 ### Dependencies
+- **2026-08-05: routine framework refresh — `fastapi 0.140.0 → 0.141.1`,
+  `uvicorn 0.51.0 → 0.52.1`.** Maintenance bumps to current stable (no security
+  content in either release range; both old and new pins audit clean).
+  `starlette` now resolves to `1.4.1` under the unchanged `>=1.3.1` floor
+  (previously `1.3.1`), also audit-clean. Smoke-tested on the bumped set: app
+  imports and starts, `/login` serves 200, unauthenticated `/api/torrents`
+  still returns 401, and the CSP / `X-Frame-Options: DENY` security headers
+  are unchanged.
 - **2026-07-27: routine framework refresh — `fastapi 0.136.1 → 0.140.0`,
   `uvicorn 0.47.0 → 0.51.0`.** Maintenance bumps to current stable (no security
   content in either release range; both old and new versions audit clean).
