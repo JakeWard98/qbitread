@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-08-10 dependency re-audit — clean, no new advisories.**
+  Scheduled routine audit. `pip-audit -r requirements.txt` against a fresh venv
+  reports **0 known vulnerabilities** across all resolved packages — both on
+  the incoming pins and again after the `pydantic-settings 2.15.0` refresh
+  below. `starlette` now resolves to `1.6.0` under the unchanged `>=1.3.1`
+  security floor (previously `1.4.1`), also audit-clean. A GitHub Advisory
+  Database sweep found no pip-ecosystem advisory affecting the stack published
+  since the 2026-08-05 re-audit — the newest Starlette advisories remain the
+  June 2026 set already closed by the `>=1.3.1` floor. All eight direct
+  requirements remain in active use — nothing to prune. No open pull requests
+  or issues on the repository. Nothing to patch; no advisory ≥ 7.5 CVSS (or
+  any severity) observed against this stack this run. (Note: the OSV API was
+  unreachable from this run's environment; coverage came from the PyPI
+  advisory DB via `pip-audit` — which mirrors OSV/GHSA for PyPI — plus the
+  GitHub Advisory Database web sweep.)
+
 - **2026-08-05 dependency re-audit — clean, no new advisories.**
   Scheduled routine audit. `pip-audit -r requirements.txt` against a fresh venv
   of the pinned set reports **0 known vulnerabilities** across all resolved
@@ -84,6 +100,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clear the routine's `>7.5` auto-merge threshold — PR left for human review.
 
 ### Dependencies
+- **2026-08-10: `pydantic-settings 2.14.2 → 2.15.0`.** Maintenance bump to
+  current stable (feature/bugfix release — Traversable config sources,
+  `case_sensitive` fixes, UTF-8 secret files; no security content; both old
+  and new pins audit clean). The `2.14.2` fix for GHSA-4xgf-cpjx-pc3j remains
+  covered. Smoke-tested on the bumped set: app imports and starts, `/login`
+  serves 200, unauthenticated `/api/torrents` still returns 401, and the CSP /
+  `X-Frame-Options: DENY` security headers are unchanged.
 - **2026-08-05: routine framework refresh — `fastapi 0.140.0 → 0.141.1`,
   `uvicorn 0.51.0 → 0.52.1`.** Maintenance bumps to current stable (no security
   content in either release range; both old and new pins audit clean).
