@@ -20,7 +20,7 @@ httpx==0.28.1
 PyJWT==2.13.0
 bcrypt==5.0.0
 aiosqlite==0.22.1
-# 2.14.2 closes GHSA-4xgf-cpjx-pc3j — NestedSecretsSettingsSource symlink-follow
+# 2.14.2+ closes GHSA-4xgf-cpjx-pc3j — NestedSecretsSettingsSource symlink-follow
 # bypass of secrets_dir_max_size (Moderate, CVSS 5.3). Not reachable: app/config.py
 # uses BaseSettings + env_file only, never the nested-secrets source.
-pydantic-settings==2.14.2
+pydantic-settings==2.15.0
