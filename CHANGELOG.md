@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-08-17 dependency re-audit — clean, no new advisories.**
+  Scheduled routine audit. `pip-audit -r requirements.txt` against a fresh venv
+  reports **0 known vulnerabilities** across all resolved packages — both on
+  the incoming pins and again after the `uvicorn 0.52.3` refresh below.
+  `starlette` continues to resolve to `1.6.0` under the unchanged `>=1.3.1`
+  security floor, also audit-clean. A GitHub Advisory Database / web sweep
+  found no pip-ecosystem advisory affecting the stack published since the
+  2026-08-10 re-audit — coverage of the Starlette "BadHost" bypass
+  (CVE-2026-48710) remains closed by the `>=1.3.1` floor, and the June 2026
+  Starlette/PyJWT advisory sets remain the newest relevant ones, all already
+  closed. All eight direct requirements remain in active use — nothing to
+  prune. No open pull requests or issues on the repository. Nothing to patch;
+  no advisory ≥ 7.5 CVSS (or any severity) observed against this stack this
+  run. (Note: the Dependabot alerts API was not reachable from this run's
+  environment; coverage came from `pip-audit` — PyPI advisory DB, which
+  mirrors OSV/GHSA — plus the GitHub Advisory Database web sweep.)
+
 - **2026-08-10 dependency re-audit — clean, no new advisories.**
   Scheduled routine audit. `pip-audit -r requirements.txt` against a fresh venv
   reports **0 known vulnerabilities** across all resolved packages — both on
@@ -100,6 +117,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clear the routine's `>7.5` auto-merge threshold — PR left for human review.
 
 ### Dependencies
+- **2026-08-17: `uvicorn 0.52.1 → 0.52.3`.** Maintenance bump to current
+  stable (both releases only update the bundled `zttp` HTTP/1.1 parser
+  dependency for parsing/performance fixes; no security content; both old and
+  new pins audit clean). Smoke-tested on the bumped set: app imports and
+  starts, `/login` serves 200, unauthenticated `/api/torrents` still returns
+  401, and the CSP / `X-Frame-Options: DENY` security headers are unchanged.
 - **2026-08-10: `pydantic-settings 2.14.2 → 2.15.0`.** Maintenance bump to
   current stable (feature/bugfix release — Traversable config sources,
   `case_sensitive` fixes, UTF-8 secret files; no security content; both old
