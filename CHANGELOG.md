@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-08-31 dependency re-audit — clean, no new advisories; all pins
+  already at latest releases.**
+  Scheduled routine audit. `pip-audit -r requirements.txt` reports
+  **0 known vulnerabilities** across all resolved packages. Every pinned
+  requirement is already at its latest PyPI release (`fastapi 0.141.1`,
+  `uvicorn 0.52.4`, `httpx 0.28.1`, `PyJWT 2.13.0`, `bcrypt 5.0.0`,
+  `aiosqlite 0.22.1`, `pydantic-settings 2.15.0`), and `starlette` resolves
+  to `1.6.0` — the latest release — under the unchanged `>=1.3.1` security
+  floor, so no version bumps were needed this run. A GitHub Advisory
+  Database / web sweep found no pip-ecosystem advisory affecting the stack
+  published since the 2026-08-24 re-audit — the Starlette "BadHost" bypass
+  (CVE-2026-48710) remains closed by the `>=1.3.1` floor, and the June 2026
+  Starlette/PyJWT advisory sets remain the newest relevant ones, all
+  already closed. All eight direct requirements remain in active use —
+  nothing to prune; `.gitignore` and project Markdown docs reviewed, no
+  updates needed. No open pull requests or issues on the repository.
+  Nothing to patch; no advisory ≥ 7.5 CVSS (or any severity) observed
+  against this stack this run. (Note: the Dependabot alerts API was not
+  reachable from this run's environment; coverage came from `pip-audit` —
+  PyPI advisory DB, which mirrors OSV/GHSA — plus the GitHub Advisory
+  Database web sweep.)
+
 - **2026-08-24 dependency re-audit — clean, no new advisories.**
   Scheduled routine audit. `pip-audit -r requirements.txt` against a fresh venv
   reports **0 known vulnerabilities** across all resolved packages — both on
