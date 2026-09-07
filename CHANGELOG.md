@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-09-07 dependency re-audit — clean, no new advisories; all pins
+  already at latest releases.**
+  Scheduled routine audit. `pip-audit -r requirements.txt` (fresh resolved
+  environment) reports **0 known vulnerabilities** across all resolved
+  packages. Every pinned requirement is already at its latest PyPI release
+  (`fastapi 0.141.1`, `uvicorn 0.52.4`, `httpx 0.28.1`, `PyJWT 2.13.0`,
+  `bcrypt 5.0.0`, `aiosqlite 0.22.1`, `pydantic-settings 2.15.0`), and
+  `starlette` resolves to `1.6.0` — still the latest release — under the
+  unchanged `>=1.3.1` security floor, so no version bumps were needed this
+  run. A GitHub Advisory Database / web sweep plus an upstream-release
+  check (Starlette and FastAPI release pages) found no pip-ecosystem
+  advisory or security release affecting the stack published since the
+  2026-08-31 re-audit — the June 2026 Starlette/PyJWT advisory sets remain
+  the newest relevant ones, all already closed. All eight direct
+  requirements remain in active use — nothing to prune; `.gitignore` and
+  project Markdown docs reviewed, no updates needed. No open pull requests
+  or issues on the repository. Nothing to patch; no advisory ≥ 7.5 CVSS
+  (or any severity) observed against this stack this run. (Same-run note:
+  the September 2026 `undici` security batch — CVE-2026-19534, CVSS 7.5 —
+  affects the Node ecosystem only and has no bearing on this Python
+  stack.) (Note: the Dependabot alerts API was not reachable from this
+  run's environment; coverage came from `pip-audit` — PyPI advisory DB,
+  which mirrors OSV/GHSA — plus the GitHub Advisory Database web sweep
+  and upstream release pages.)
+
 - **2026-08-31 dependency re-audit — clean, no new advisories; all pins
   already at latest releases.**
   Scheduled routine audit. `pip-audit -r requirements.txt` reports
