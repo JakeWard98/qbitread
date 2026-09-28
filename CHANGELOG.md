@@ -8,6 +8,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-09-28 dependency audit — patched the September 2026 PyJWT advisory
+  batch: bumped `PyJWT` 2.13.0 → 2.15.0; also bumped `uvicorn` 0.52.4 →
+  0.54.0 (routine, non-security).**
+  Scheduled routine audit. `pip-audit -r requirements.txt` (fresh resolved
+  environment) reports **0 known vulnerabilities**, but the manual GitHub
+  advisory sweep caught a batch of ten PyJWT security advisories published
+  2026-09-08/11/23 (none carries a CVE ID yet, which is why `pip-audit` /
+  the PyPA advisory DB did not flag them). Fixed in `2.14.0` / `2.15.0`:
+  - **GHSA-ffc3-869f-jxw9 (Critical, CVSS 9.1; fixed 2.14.0)** — a PEM
+    public key with formatting mutations (whitespace at BEGIN/END markers,
+    CR-only line endings, single-line folding) slips past
+    `is_pem_format()` and is accepted as an HMAC secret, enabling
+    universal token forgery under mixed HS/asymmetric algorithm
+    allow-lists.
+  - **GHSA-p4g4-x82p-q773 (High, CVSS 7.4; fixed 2.14.0)** — DER-encoded
+    public keys / certificates accepted as HMAC secrets, bypassing the
+    CVE-2022-29217 key-confusion guard.
+  - **GHSA-9j54-fg26-wv3r (High, CVSS 7.4; fixed 2.14.0)** — empty
+    symmetric JWK (`"k": ""`) accepted for HS256 verification via PyJWK.
+  - **GHSA-9v7f-9g4p-ffgj (High, CVSS 7.4; fixed 2.14.0)** — PyJWKClient
+    follows HTTP redirects to untrusted JWKS endpoints.
+  - **GHSA-8wjv-2p76-3863 / GHSA-42vr-xj54-vc7v (Moderate; fixed
+    2.14.0 / 2.15.0)** — uncaught `RecursionError` (process-crashing DoS)
+    on deeply nested token headers / payloads during pre-verification
+    parsing; four further Moderates in JWK/options paths.
+  **None of these is reachable in qBitRead** — `verify_jwt()` pins a
+  single symmetric `HS256` algorithm with a string secret and never uses
+  PEM/DER/JWK key material, `PyJWK`, or `PyJWKClient` — but the batch
+  contains a Critical (CVSS 9.1 ≥ 7.5) affecting the pinned `2.13.0`, so
+  the pin was raised to `2.15.0` the same run. Validated: fresh-venv
+  install, app import, HS256 encode/decode round-trip, malformed-token
+  handling (clean `DecodeError`), and a clean `pip-audit` re-run against
+  the new pins. `uvicorn 0.54.0` (2026-09-24) adds experimental HTTP/2
+  support only — no security content, no breaking changes. All other pins
+  remain at their latest releases (`fastapi 0.141.1`, `httpx 0.28.1`,
+  `bcrypt 5.0.0`, `aiosqlite 0.22.1`, `pydantic-settings 2.15.0`;
+  `starlette` resolves to `1.7.0` under the unchanged `>=1.3.1` floor).
+  The September 2026 `undici` batch remains Node-only — no bearing on
+  this stack. No open Dependabot PRs or security issues on the
+  repository; `.gitignore` and project Markdown docs reviewed, no updates
+  needed. (Note: the Dependabot alerts API was not reachable from this
+  run's environment; coverage came from `pip-audit` plus the GitHub
+  Advisory Database web sweep and upstream release pages.)
+
 - **2026-09-07 dependency re-audit — clean, no new advisories; all pins
   already at latest releases.**
   Scheduled routine audit. `pip-audit -r requirements.txt` (fresh resolved
