@@ -8,6 +8,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-10-28 security audit (follow-up to the certifi patch) — Dockerfile
+  build-integrity fixes, release-workflow action pins refreshed
+  (`docker/build-push-action` v7.4.0), `pydantic-settings` 2.15.0 →
+  2.16.1, advisory comments refreshed.**
+  Remaining Low / Info items from the scheduled audit, fixed after the
+  Critical certifi floor (GHSA-6q48-6c7w-9gw2) shipped on its own.
+  - **Dockerfile (Low) — three latent defects in the venv-slimming
+    step, found by building the image.** (1) It deleted every
+    `*.dist-info/`, so the shipped image carried **no Python package
+    inventory** — Trivy / Grype / pip-audit saw 0 packages, which is how
+    the vulnerable `certifi 2026.7.22` in v1.7.4 went unflagged. (2)
+    Because that deletion ran first, the later `pip uninstall -y pip
+    setuptools` silently found nothing to remove, so `pip` stayed in
+    `/venv` — together with its vendored CA bundle, which still contains
+    the compromised emSign ECC Root CA - G3. (3) The `…; true && …`
+    chaining swallowed a failing `pip install`: an uninstallable
+    requirement still produced a "successful" build (exit 0, empty venv)
+    that the release workflow would have pushed. Fix: `*.dist-info/` is
+    kept, each slimming step is individually error-tolerant via
+    `{ … || true; }`, and `pip install` failures now fail the build.
+    Verified by building both Dockerfiles locally: the image now exposes
+    all 21 packages to metadata scanners, `pip` is actually removed (so
+    the stale vendored bundle is gone from `/venv`), an uninstallable
+    requirement fails the build (exit 1, previously 0), and the image is
+    **8.5 MB smaller** (pip removed, +1.1 MB of metadata) — README image
+    badge updated from 139.6 MB to an estimated 131.1 MB accordingly.
+    The upstream `python:3.12-slim` base still ships its own system pip
+    (also with that vendored bundle) outside `/venv`; it is not on the
+    app's import path.
+  - **`docker-release.yml` (Low).** `docker/build-push-action` v7.0.0 →
+    v7.4.0, which stops printing build metadata via `core.info` (a
+    workflow-command injection vector, upstream PR #1617; theoretical
+    here — the metadata is owner-controlled and the workflow is
+    release-only). The other five action pins were refreshed to the
+    latest release in their current major (`checkout` v6.1.0,
+    `setup-qemu` v4.4.0, `setup-buildx` v4.4.1, `login` v4.7.0,
+    `metadata` v6.2.0); every SHA was verified against its upstream tag
+    with `git ls-remote`, comments now name the exact version, all six
+    run on Node 24, and every input/output the workflow uses exists in
+    the new `action.yml`s. Hardening: `persist-credentials: false` on
+    checkout (only the login step needs the token) and the image digest
+    passed through `env:` instead of being interpolated into `run:`.
+    `actionlint` clean.
+  - **`requirements.txt`.** `pydantic-settings` 2.15.0 → 2.16.1, whose
+    `python-dotenv>=1.2.2` floor closes the CVE-2026-28684 /
+    GHSA-mf9w-mj56-hr94 range (`set_key()` / `unset_key()` symlink
+    follow; Moderate 6.6; not reachable — qBitRead never writes `.env`)
+    for every resolve; settings parsing verified identical across both
+    versions. Advisory comments refreshed: the 2026-09 PyJWT batch now
+    has CVE IDs (e.g. GHSA-ffc3-869f-jxw9 = CVE-2026-102268), five more
+    PyJWT GHSAs closed by 2.14.0 / 2.15.0 are listed (incl.
+    GHSA-pxh4-856f-4h89, High, added to the DB 2026-10-22), and
+    Starlette GHSA-jp82-jpqv-5vv3 / CVE-2026-54282 (Low; fixed 1.3.0) is
+    recorded under the existing floor. **Deliberately held:** `PyJWT
+    2.15.1` (its only change re-accepts `=` padding in JWS segments,
+    partly relaxing the 2.14.0 canonical-encoding hardening —
+    verified: a padded copy of a valid session token is accepted by
+    2.15.1 and rejected by 2.15.0) and `fastapi 0.162.0` (no security
+    content across 0.142.0–0.162.0; 0.142.0+ adds a hard
+    `opentelemetry-api` dependency, whose ≤ 1.45.0 releases carry
+    GHSA-xcq7-p3pf-p88h / CVE-2026-114603, Moderate — to be evaluated
+    on its own).
+  - **Audit results.** `pip-audit` clean on the resolved tree (21
+    packages; `starlette` resolves to 1.10.0); no advisory published
+    since the 2026-09-28 audit affects a resolved version other than
+    certifi (already patched). Not affected by the October 2026 "*2Shell"
+    issues (PHP2Shell, React2Shell, Node2Shell / Python Brotli). The
+    published v1.7.4 image also predates the CPython 3.12.15 / 3.12.16
+    security releases (none reachable: the app uses no tarfile /
+    zipfile / tempfile / urllib.request and terminates no TLS) — the
+    floating `python:3.12-slim` base picks them up on the next release
+    build. **A new release is needed** to ship the certifi fix, these
+    image fixes and the newer CPython to GHCR. No `.gitignore` change
+    needed. (Coverage note: the Dependabot / code-scanning alert APIs
+    returned 403 to this run's integration, and api.osv.dev was blocked
+    by the egress policy; coverage came from `pip-audit`, the PyPI
+    vulnerability feed, the GitHub Advisory Database web UI, upstream
+    release notes, and a local image build.)
+
 - **2026-10-28 security patch — added a `certifi>=2026.10.19` security
   floor for GHSA-6q48-6c7w-9gw2 (Critical, CVSS 9.1).**
   Found by the scheduled 2026-10-28 audit's manual advisory sweep
