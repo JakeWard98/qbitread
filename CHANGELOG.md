@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-10-28 security patch — added a `certifi>=2026.10.19` security
+  floor for GHSA-6q48-6c7w-9gw2 (Critical, CVSS 9.1).**
+  Found by the scheduled 2026-10-28 audit's manual advisory sweep
+  (`pip-audit` reports clean because a fresh resolve already picks the
+  fixed `certifi 2026.10.23`). `certifi` — httpx's default CA bundle, an
+  unpinned transitive dependency — shipped the **emSign ECC Root CA - G3**
+  root in every release from `2019.03.09` up to `2026.10.18`; eight
+  eMudhra intermediates under it had their private keys compromised, so
+  an on-path attacker holding one can mint a certificate for any
+  hostname. **Reachable in qBitRead** whenever `QBIT_HOST` is `https://`:
+  `QBitClient` uses `httpx.AsyncClient` with the default `verify=True`
+  (which builds its trust store from `certifi.where()`), so the TLS
+  session that carries the qBittorrent login could be intercepted. The
+  published **v1.7.4** image (built 2026-10-10) resolved `certifi
+  2026.7.22` and is affected. Fix: an explicit `certifi>=2026.10.19`
+  floor in `requirements.txt` (2026.10.18 dropped all emSign roots;
+  2026.10.19 restored the unaffected ones), so no build — including a
+  stale resolver or cached layer — can regress below the fixed bundle.
+  The floor is also what makes a rebuild pick up the fix at all: the
+  release workflow's GHCR registry build cache (`buildcache`,
+  `mode=max`) keys the `pip install` layer on `requirements.txt`, so
+  re-releasing an unchanged file would have re-used v1.7.4's layer and
+  its vulnerable bundle.
+  **Operators must pull a rebuilt image**: the fix reaches GHCR with the
+  next published release. Per the standing ≥ 7.5 CVSS rule this was
+  patched and merged ahead of the rest of the audit. Validated:
+  fresh-venv install resolves `certifi 2026.10.23` with the emSign ECC
+  G3 root absent from the bundle, pip refuses `certifi==2026.7.22`
+  against the new floor (`ResolutionImpossible`), `pip-audit` clean,
+  httpx TLS handshake against the new bundle succeeds, and the app boots
+  with login / `/api/auth/me` / CSP / qBit-down error handling unchanged.
+  Not affected by the other October 2026 "*2Shell" vulnerabilities:
+  PHP2Shell (CVE-2026-109618 / CVE-2026-109619 — no PHP), React2Shell
+  (CVE-2025-55182 — vanilla JS frontend, no React/RSC), and Node2Shell
+  (CVE-2026-111497 — the Python side affects only the `Brotli` /
+  `brotlicffi` packages, neither of which is in the resolved tree, and
+  httpx Brotli decoding is therefore disabled).
+
 - **2026-09-28 dependency audit — patched the September 2026 PyJWT advisory
   batch: bumped `PyJWT` 2.13.0 → 2.15.0; also bumped `uvicorn` 0.52.4 →
   0.54.0 (routine, non-security).**
