@@ -19,15 +19,17 @@ ENV PATH="/venv/bin:$PATH"
 COPY requirements.txt .
 # Install deps, then aggressively slim the venv:
 #   - strip debug symbols from all .so files (big wins on pydantic_core, bcrypt)
-#   - delete bundled tests/, __pycache__/, *.dist-info/, type stubs
+#   - delete bundled tests/, __pycache__/, type stubs
 #   - drop pip + setuptools (not needed at runtime)
+# *.dist-info/ is kept: it is the package inventory image scanners read, and
+# `pip uninstall` needs it. Each slimming step may fail without failing the
+# build, but a failed `pip install` must stop it.
 RUN pip install --no-cache-dir --no-compile -r requirements.txt \
-    && find /venv -type f -name "*.so" -exec strip --strip-unneeded {} + 2>/dev/null; true \
-    && find /venv -type d \( -name tests -o -name test \) -prune -exec rm -rf {} + 2>/dev/null; true \
-    && find /venv -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true \
-    && find /venv -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null; true \
-    && find /venv -type f \( -name "*.pyi" -o -name "py.typed" \) -delete 2>/dev/null; true \
-    && pip uninstall -y pip setuptools 2>/dev/null; true
+    && { find /venv -type f -name "*.so" -exec strip --strip-unneeded {} + 2>/dev/null || true; } \
+    && { find /venv -type d \( -name tests -o -name test \) -prune -exec rm -rf {} + 2>/dev/null || true; } \
+    && { find /venv -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true; } \
+    && { find /venv -type f \( -name "*.pyi" -o -name "py.typed" \) -delete 2>/dev/null || true; } \
+    && { pip uninstall -y pip setuptools 2>/dev/null || true; }
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────
 FROM python:3.12-slim
