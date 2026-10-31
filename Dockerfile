@@ -48,7 +48,8 @@ COPY app/ ./app/
 COPY templates/ ./templates/
 COPY static/ ./static/
 
-RUN mkdir -p /app/data && chown -R appuser:appuser /app
+# Only the data volume is writable by the app user; code stays root-owned.
+RUN mkdir -p /app/data && chown appuser:appuser /app/data
 
 USER appuser
 

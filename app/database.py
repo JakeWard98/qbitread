@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import aiosqlite
 
+from app.auth.security import new_token_version
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,8 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(128) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user',
     created_at DATETIME,
-    password_meets_policy BOOLEAN NOT NULL DEFAULT 1
+    password_meets_policy BOOLEAN NOT NULL DEFAULT 1,
+    token_version VARCHAR(64) NOT NULL DEFAULT ''
 )
 """
 
@@ -98,6 +100,24 @@ async def _migrate_add_password_meets_policy(conn):
     logger.info("password_meets_policy column added (existing users default to 0)")
 
 
+async def _migrate_add_token_version(conn):
+    """Add the per-user token_version column and give every user without one a
+    random value. Tokens issued before this column existed carry no version and
+    stop validating, so every user signs in once after the upgrade."""
+    cursor = await conn.execute("PRAGMA table_info(users)")
+    columns = {row[1] for row in await cursor.fetchall()}
+    if "token_version" not in columns:
+        logger.info("Adding token_version column to users table")
+        await conn.execute(
+            "ALTER TABLE users ADD COLUMN token_version VARCHAR(64) NOT NULL DEFAULT ''"
+        )
+    cursor = await conn.execute("SELECT id FROM users WHERE token_version = ''")
+    for row in await cursor.fetchall():
+        await conn.execute(
+            "UPDATE users SET token_version = ? WHERE id = ?", (new_token_version(), row[0])
+        )
+
+
 async def _migrate_add_app_settings(conn):
     """Create app_settings table and seed refresh_rate from env/default on first run."""
     await conn.execute(CREATE_APP_SETTINGS_TABLE)
@@ -119,5 +139,6 @@ async def init_db():
             await _migrate_add_password_meets_policy(conn)
             await _migrate_manager_to_monitor(conn)
         await conn.execute(CREATE_USERS_TABLE)
+        await _migrate_add_token_version(conn)
         await _migrate_add_app_settings(conn)
         await conn.commit()

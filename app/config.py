@@ -1,9 +1,11 @@
+import json
 import logging
 import os
 import secrets
+from typing import Annotated
 
-from pydantic import model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +35,9 @@ class Settings(BaseSettings):
     # Rate limiting
     LOGIN_RATE_LIMIT: int = 5  # attempts per minute
 
-    # Trusted reverse proxy IPs (only trust X-Forwarded-For from these)
-    TRUSTED_PROXIES: list[str] = []
+    # Trusted reverse proxy IPs/CIDRs (only trust X-Forwarded-For from these).
+    # Accepts a comma-separated list or a JSON array; empty means none.
+    TRUSTED_PROXIES: Annotated[list[str], NoDecode] = []
 
     # Cookie security (disable Secure flag for local dev without HTTPS)
     SECURE_COOKIES: bool = False
@@ -47,9 +50,30 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    @field_validator("TRUSTED_PROXIES", mode="before")
+    @classmethod
+    def _parse_trusted_proxies(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                return json.loads(v)
+            return [p.strip() for p in v.split(",") if p.strip()]
+        return v
+
     @model_validator(mode="after")
     def _ensure_secret_key(self) -> "Settings":
         if self.SECRET_KEY:
+            if self.SECRET_KEY.lower().startswith("change-me"):
+                raise ValueError(
+                    "SECRET_KEY is still the documented placeholder. Remove it to "
+                    "auto-generate one, or set it to the output of "
+                    "`python -c \"import secrets; print(secrets.token_hex(32))\"`."
+                )
+            if len(self.SECRET_KEY.encode()) < 32:
+                logger.warning(
+                    "SECRET_KEY is shorter than 32 bytes; JWTs signed with it can be "
+                    "brute-forced offline. Use a random 64-hex-character key."
+                )
             return self
 
         data_dir = os.path.dirname(self.DATABASE_PATH)

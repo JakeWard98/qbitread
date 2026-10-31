@@ -12,17 +12,26 @@ services:
     image: ghcr.io/jakeward98/qbitread:latest
     container_name: qbitread
     restart: unless-stopped
+    # Hardening: the app only writes to /app/data (the volume).
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "8112:8000"
     environment:
       - QBIT_HOST=http://your-qbittorrent-ip:8080  # REQUIRED: set to your qBittorrent URL
       - QBIT_USERNAME=admin
       - QBIT_PASSWORD=CHANGE_ME_TO_A_STRONG_PASSWORD   # REQUIRED: change before use
-      # SECRET_KEY is auto-generated if omitted
-      # - SECRET_KEY=change-me-to-a-random-64-char-string
+      # SECRET_KEY is auto-generated if omitted. To set one, use the output of:
+      #   python -c "import secrets; print(secrets.token_hex(32))"
+      # - SECRET_KEY=
       # Admin credentials (recommended). If omitted, a setup wizard runs on first visit.
       - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=CHANGE_ME_TO_A_STRONG_PASSWORD   # REQUIRED: change before use
+      # - ADMIN_PASSWORD=   # set a strong password (the placeholder is refused at startup)
       - SECURE_COOKIES=false
       # Opt-in admin feature: returns qBit creds to the browser for IP-ban recovery.
       # - ENABLE_BROWSER_AUTH=false

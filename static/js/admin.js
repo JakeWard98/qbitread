@@ -16,10 +16,9 @@
     return { valid: errors.length === 0, errors };
   }
 
+  // Safe in both text and quoted-attribute contexts (escapes quotes too).
   function escHtml(s) {
-    const d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
   function validateHttpUrl(raw) {

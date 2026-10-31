@@ -10,6 +10,8 @@ def _check_password_policy(password: str) -> str:
     errors = []
     if len(password) < 8:
         errors.append("at least 8 characters")
+    if len(password.encode()) > 72:
+        errors.append("at most 72 bytes")
     if not re.search(r"[A-Z]", password):
         errors.append("at least 1 uppercase letter")
     if not re.search(r"[a-z]", password):

@@ -46,10 +46,19 @@ single qBittorrent instance behind a trusted reverse proxy.
   exists or not (bcrypt verification always runs against a dummy hash).
 - **SQL injection.** All SQL is parameterised via `aiosqlite`.
 - **XSS in the dashboard.** All user-controlled strings are rendered via
-  `textContent` or an `escHtml()` helper; CSP is `script-src 'self'`.
+  `textContent` or an `escHtml()` helper that is safe in both text and
+  quoted-attribute contexts; CSP is `script-src 'self'` with
+  `base-uri 'none'`, `object-src 'none'` and `form-action 'self'`.
 - **Clickjacking.** `X-Frame-Options: DENY` and CSP `frame-ancestors 'none'`.
 - **Reverse-proxy header spoofing.** `X-Forwarded-For` is only trusted when
-  the request comes from an IP listed in `TRUSTED_PROXIES`.
+  the request comes from an IP listed in `TRUSTED_PROXIES`, and then only
+  the right-most hop your proxies did not add is used, so a client-supplied
+  header cannot pick its own rate-limit bucket.
+- **Stolen or stale sessions.** Changing a user's password revokes all of
+  that user's existing sessions, and deleting a user permanently invalidates
+  their tokens (re-creating the same username does not revive them).
+- **Oversized requests.** Request bodies over 64 KiB are rejected with 413
+  before they are buffered.
 
 ### What qBitRead does **not** defend against
 

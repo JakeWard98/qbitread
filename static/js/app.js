@@ -1,11 +1,9 @@
 (function () {
   /* ── Helpers ── */
   const $ = (id) => document.getElementById(id);
-  const escHtml = (s) => {
-    const d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-  };
+  // Safe in both text and quoted-attribute contexts (escapes quotes too).
+  const escHtml = (s) =>
+    String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const fmtBytes = (b, decimals = 1) => {
     if (!b) return '0 B';
@@ -120,6 +118,8 @@
       const showRatio = userRole === 'admin' || userRole === 'monitor';
       const ratioTh = document.querySelector('thead th[data-col="ratio"]');
       if (ratioTh) ratioTh.style.display = showRatio ? '' : 'none';
+      const ratioOpt = document.querySelector('#mobile-sort option[value="ratio"]');
+      if (ratioOpt) ratioOpt.hidden = !showRatio;
     }
 
     /* ── Connectivity ── */
@@ -199,7 +199,8 @@
         } else {
           console.error('fetchData failed:', e.message);
           showError('Cannot reach qBittorrent: ' + e.message);
-          const newInterval = Math.min(INTERVAL * Math.pow(2, consecutiveErrors), MAX_INTERVAL);
+          // Back off from the configured rate, never poll faster than it.
+          const newInterval = Math.max(INTERVAL, Math.min(INTERVAL * Math.pow(2, consecutiveErrors), MAX_INTERVAL));
           if (newInterval !== currentInterval) {
             console.warn('Polling slowed to ' + newInterval + 's after ' + consecutiveErrors + ' consecutive errors');
             currentInterval = newInterval;
@@ -303,7 +304,7 @@
             '<td class="num ul-speed">' + fmtSpeed(t.upspeed) + '</td>' +
             '<td class="num eta">' + fmtEta(t.eta) + '</td>' +
             (showRatio ? '<td class="num ratio">' + fmtRatio(t.ratio) + '</td>' : '') +
-            '<td><span class="badge badge-' + sc + '">' + stateLabel(t.state) + '</span></td>' +
+            '<td><span class="badge badge-' + sc + '">' + escHtml(stateLabel(t.state)) + '</span></td>' +
             '</tr>'
           );
         })

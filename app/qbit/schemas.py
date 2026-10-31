@@ -9,7 +9,7 @@ class TorrentInfo(BaseModel):
     dlspeed: int = 0
     upspeed: int = 0
     eta: int = 0
-    ratio: float = 0.0
+    ratio: float | None = 0.0
     state: str = ""
     category: str = ""
     num_seeds: int = 0

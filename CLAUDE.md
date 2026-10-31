@@ -59,7 +59,7 @@ requirements.txt        # Python dependencies (pinned)
 ```bash
 # Development (no Docker)
 pip install -r requirements.txt
-export QBIT_HOST=http://localhost:8080 QBIT_PASSWORD=changeme ADMIN_PASSWORD=admin SECURE_COOKIES=false
+export QBIT_HOST=http://localhost:8080 QBIT_PASSWORD=changeme ADMIN_PASSWORD='Dev-Passw0rd!' SECURE_COOKIES=false DATABASE_PATH=./data/qbitread.db
 uvicorn app.main:app --reload --port 8000
 
 # Production (Docker)
@@ -86,7 +86,7 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 - **Dark minimal UI**: The interface uses CSS variables for theming. The design is intentionally sparse — no unnecessary visual complexity.
 - **Single-page feel**: Each page (dashboard, login, setup, admin) is a separate HTML template served by FastAPI, with JS handling dynamic behavior. Not a true SPA — no client-side routing.
 - **Pydantic for all validation**: Request/response schemas use Pydantic models. Config uses pydantic-settings.
-- **Circuit breaker on qBit client**: The `QBitClient` (`app/qbit/client.py`) uses exponential backoff (10s to 300s) on failed logins and detects IP bans (15-minute pause). Respect this pattern when modifying the client.
+- **Circuit breaker on qBit client**: The `QBitClient` (`app/qbit/client.py`) uses exponential backoff (10s to 300s) on failed logins and detects IP bans (login probed every 60s for up to 15 minutes). Respect this pattern when modifying the client.
 
 ## Security Requirements
 
@@ -103,6 +103,8 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 - JWT tokens are stored in **HTTP-only, SameSite=Strict** cookies. Never move tokens to localStorage, sessionStorage, or response bodies.
 - When `SECURE_COOKIES=true`, cookies get the Secure flag (required behind HTTPS reverse proxy).
 - JWT expiry is 12 hours by default (`JWT_EXPIRY_MINUTES=720`).
+- Each user has a random `token_version` that is embedded in their JWT (`ver`) and checked on every request. It is regenerated on password change, revoking existing sessions, and is unique per account, so a re-created username never revives an old token.
+- bcrypt runs in a worker thread (`run_in_threadpool`), never on the event loop. Passwords are capped at 72 bytes (bcrypt's limit).
 - Passwords are hashed with **bcrypt** (with salt). Never store or compare plaintext passwords.
 
 ### CSRF Protection
@@ -114,12 +116,12 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 ### Rate Limiting
 
 - Login endpoint is rate-limited to 5 attempts per minute per IP (sliding window).
-- Respects `X-Forwarded-For` for clients behind a reverse proxy.
+- Honours `X-Forwarded-For` only when the direct peer is in `TRUSTED_PROXIES`, and then uses the right-most hop not in `TRUSTED_PROXIES` (never the client-supplied left-most entry). IPv6 clients are bucketed per /64.
 
 ### Security Headers
 
 Applied via `SecurityHeadersMiddleware` in `app/middleware.py`:
-- `Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'` — plus `form-action 'self' <browser-origin>` and `frame-src 'self' <browser-origin>` appended when `QBIT_BROWSER_HOST` is set and passes origin validation.
+- `Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'` — when `QBIT_BROWSER_HOST` is set and passes origin validation, `form-action` becomes `'self' <browser-origin>` and `frame-src 'self' <browser-origin>` is added.
 - `X-Frame-Options: DENY`
 - `X-Content-Type-Options: nosniff`
 - `X-XSS-Protection: 0` (modern browsers; disables the legacy auditor)
@@ -133,14 +135,15 @@ Applied via `SecurityHeadersMiddleware` in `app/middleware.py`:
 
 ### Docker Security
 
-- Container runs as non-root `appuser` (no login shell).
+- Container runs as non-root `appuser` (no login shell). Application code is root-owned; only `/app/data` is writable by `appuser`.
+- The shipped compose files run the container with a read-only root filesystem (`tmpfs` for `/tmp`), `cap_drop: [ALL]` and `no-new-privileges`.
 - Multi-stage build minimizes attack surface.
 - SQLite database and secret key persisted in `/app/data/` volume.
 
 ## Code Style & Patterns
 
 - **No test framework** currently in the project.
-- **Middleware order matters**: SecurityHeaders -> RateLimiting -> CSRF (applied in reverse in `main.py`).
+- **Middleware order matters**: SecurityHeaders -> RateLimiting -> CSRF -> BodySizeLimit (applied in reverse in `main.py`). BodySizeLimit (64 KiB, 413) must stay innermost.
 - **Error handling**: qBit client returns structured error responses; frontend shows connection status indicator with error messages.
 - **Frontend polling**: Dashboard polls `/api/torrents` and `/api/transfer` at a configurable interval (default 5 seconds, stored in `app_settings` DB table, adjustable via admin panel). On errors, it backs off exponentially up to 60 seconds.
 - **Dependencies are pinned** in `requirements.txt`. Update versions deliberately.
@@ -157,6 +160,7 @@ All configuration is via environment variables. See `.env.example` for the full 
 | `ADMIN_PASSWORD` | Recommended | Bootstrap admin password (setup wizard if omitted) |
 | `SECURE_COOKIES` | No | Set `true` behind HTTPS proxy |
 | `REFRESH_RATE` | No | Initial dashboard polling interval in seconds (default: `5`, range: 2–300). Seeds `app_settings` on first run only; admin panel value takes precedence on subsequent starts |
+| `TRUSTED_PROXIES` | No | Reverse proxy IPs/CIDRs whose `X-Forwarded-For` is trusted for rate limiting. Comma-separated or JSON array; empty = trust none |
 | `ENABLE_BROWSER_AUTH` | No | Opt-in admin feature (default: `false`). When true, `/api/qbit/browser-auth-creds` returns qBit credentials to the admin browser for IP-ban recovery. Off: endpoint returns 404 and the admin UI hides the form |
 
 ## CI/CD

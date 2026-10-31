@@ -4,7 +4,10 @@
 
 # Environment & secrets
 .env
-.env.example
+.env.*
+.envrc
+.secret_key
+**/.secret_key
 
 # Python
 __pycache__

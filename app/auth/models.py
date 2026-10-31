@@ -13,6 +13,7 @@ class User:
     role: str = "user"
     created_at: datetime | None = None
     password_meets_policy: bool = True
+    token_version: str = ""
 
     @property
     def is_admin(self) -> bool:
@@ -29,4 +30,5 @@ class User:
             role=row["role"],
             created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
             password_meets_policy=bool(row["password_meets_policy"]),
+            token_version=row["token_version"] if "token_version" in row.keys() else "",
         )
