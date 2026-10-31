@@ -7,8 +7,9 @@ import time
 from collections import defaultdict
 from urllib.parse import urlparse
 
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config import settings
 
@@ -66,12 +67,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "script-src 'self'; "
             "img-src 'self' data:; "
             "connect-src 'self'; "
-            "frame-ancestors 'none'"
+            "frame-ancestors 'none'; "
+            "base-uri 'none'; "
+            "object-src 'none'"
         )
         browser_origin = _sanitize_csp_origin(settings.QBIT_BROWSER_HOST)
         if browser_origin:
             csp += f"; form-action 'self' {browser_origin}"
             csp += f"; frame-src 'self' {browser_origin}"
+        else:
+            csp += "; form-action 'self'"
         response.headers["Content-Security-Policy"] = csp
         return response
 
@@ -91,8 +96,33 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         forwarded = request.headers.get("x-forwarded-for")
         client_ip = request.client.host if request.client else "unknown"
         if forwarded and self._is_trusted_proxy(client_ip):
-            return forwarded.split(",")[0].strip()
-        return client_ip
+            # Proxies append, so only the right-most entries are trustworthy:
+            # walk back past our own proxies and stop at the first hop they
+            # did not add. The left-most entry is whatever the client sent.
+            for hop in reversed(forwarded.split(",")):
+                hop = hop.strip()
+                try:
+                    ipaddress.ip_address(hop)
+                except ValueError:
+                    break
+                client_ip = hop
+                if not self._is_trusted_proxy(hop):
+                    break
+        return self._bucket(client_ip)
+
+    @staticmethod
+    def _bucket(ip: str) -> str:
+        """Rate-limit key: the IPv4 address, or the /64 for IPv6 (one host
+        typically controls a whole /64)."""
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return ip
+        if addr.version == 6:
+            if addr.ipv4_mapped:
+                return str(addr.ipv4_mapped)
+            return str(ipaddress.ip_network(f"{addr}/64", strict=False))
+        return str(addr)
 
     @staticmethod
     def _is_trusted_proxy(ip: str) -> bool:
@@ -110,9 +140,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             pass
         return False
 
+    _MAX_TRACKED = 10_000
+
     def _clean(self, ip: str, now: float):
         cutoff = now - self.window
-        self._hits[ip] = [t for t in self._hits[ip] if t > cutoff]
+        hits = [t for t in self._hits.get(ip, ()) if t > cutoff]
+        if hits:
+            self._hits[ip] = hits
+        else:
+            self._hits.pop(ip, None)
+        if len(self._hits) > self._MAX_TRACKED:
+            for key in [k for k, v in self._hits.items() if not v or v[-1] <= cutoff]:
+                del self._hits[key]
 
     async def dispatch(self, request: Request, call_next):
         # Match on the raw ASGI scope path, not request.url.path: a crafted Host
@@ -133,6 +172,49 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 self._hits[ip].append(now)
 
         return await call_next(request)
+
+
+class BodySizeLimitMiddleware:
+    """Reject request bodies larger than max_bytes with 413 before they are
+    buffered. The API only accepts small JSON documents."""
+
+    def __init__(self, app: ASGIApp, max_bytes: int = 64 * 1024):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        for name, value in scope["headers"]:
+            if name == b"content-length":
+                if not value.isdigit() or int(value) > self.max_bytes:
+                    return await self._reject(send)
+
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    # Chunked bodies have no Content-Length; FastAPI turns this
+                    # into the 413 response while reading the body.
+                    raise HTTPException(status_code=413, detail="Request body too large")
+            return message
+
+        await self.app(scope, limited_receive, send)
+
+    @staticmethod
+    async def _reject(send: Send):
+        body = b'{"detail":"Request body too large"}'
+        await send({
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())],
+        })
+        await send({"type": "http.response.body", "body": body})
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):

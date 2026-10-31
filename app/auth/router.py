@@ -2,15 +2,27 @@ import sqlite3
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from starlette.concurrency import run_in_threadpool
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User
 from app.auth.schemas import LoginRequest, PasswordUpdate, RefreshRateUpdate, RoleUpdate, UserCreate, UserOut, password_meets_policy
-from app.auth.security import create_jwt, generate_csrf_token, get_dummy_hash, hash_password, verify_password
+from app.auth.security import create_jwt, generate_csrf_token, get_dummy_hash, hash_password, new_token_version, verify_password
 from app.config import settings
 from app.database import get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+def _set_session_cookie(response: Response, username: str, role: str, token_version: str) -> None:
+    response.set_cookie(
+        key="access_token",
+        value=create_jwt(username, role, token_version),
+        httponly=True,
+        secure=settings.SECURE_COOKIES,
+        samesite="strict",
+        max_age=settings.JWT_EXPIRY_MINUTES * 60,
+    )
 
 
 @router.post("/login")
@@ -27,7 +39,7 @@ async def login(
     user = User.from_row(row)
     # Always run bcrypt comparison to prevent timing-based user enumeration
     password_hash = user.password if user else get_dummy_hash()
-    password_valid = verify_password(body.password, password_hash)
+    password_valid = await run_in_threadpool(verify_password, body.password, password_hash)
     if not user or not password_valid:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -39,17 +51,9 @@ async def login(
         )
         await db.commit()
 
-    token = create_jwt(user.username, user.role)
+    _set_session_cookie(response, user.username, user.role, user.token_version)
     csrf_token = generate_csrf_token()
 
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        secure=settings.SECURE_COOKIES,
-        samesite="strict",
-        max_age=settings.JWT_EXPIRY_MINUTES * 60,
-    )
     response.set_cookie(
         key="csrf_token",
         value=csrf_token,
@@ -72,20 +76,25 @@ async def initial_setup(
     body: UserCreate,
     db=Depends(get_db),
 ):
-    cursor = await db.execute("SELECT * FROM users LIMIT 1")
+    cursor = await db.execute("SELECT 1 FROM users LIMIT 1")
     if await cursor.fetchone() is not None:
         raise HTTPException(status_code=403, detail="Setup already completed")
 
     now = datetime.now(timezone.utc).isoformat()
+    hashed = await run_in_threadpool(hash_password, body.password)
+    # Insert only while the table is still empty, so concurrent setup requests
+    # cannot each create an admin.
     try:
-        await db.execute(
-            "INSERT INTO users (username, password, role, created_at, password_meets_policy) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (body.username, hash_password(body.password), "admin", now, True),
+        cursor = await db.execute(
+            "INSERT INTO users (username, password, role, created_at, password_meets_policy, token_version) "
+            "SELECT ?, ?, 'admin', ?, 1, ? WHERE NOT EXISTS (SELECT 1 FROM users)",
+            (body.username, hashed, now, new_token_version()),
         )
         await db.commit()
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="Setup already completed")
+    if cursor.rowcount != 1:
+        raise HTTPException(status_code=403, detail="Setup already completed")
     return {"message": "Admin account created. Please log in."}
 
 
@@ -124,11 +133,12 @@ async def create_user(
         raise HTTPException(status_code=409, detail="Username already exists")
 
     now = datetime.now(timezone.utc).isoformat()
-    hashed = hash_password(body.password)
+    hashed = await run_in_threadpool(hash_password, body.password)
+    token_version = new_token_version()
     cursor = await db.execute(
-        "INSERT INTO users (username, password, role, created_at, password_meets_policy) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (body.username, hashed, body.role, now, True),
+        "INSERT INTO users (username, password, role, created_at, password_meets_policy, token_version) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (body.username, hashed, body.role, now, True, token_version),
     )
     await db.commit()
 
@@ -139,6 +149,7 @@ async def create_user(
         role=body.role,
         created_at=datetime.fromisoformat(now),
         password_meets_policy=True,
+        token_version=token_version,
     )
 
 
@@ -146,7 +157,8 @@ async def create_user(
 async def change_user_password(
     user_id: int,
     body: PasswordUpdate,
-    _: User = Depends(require_admin),
+    response: Response,
+    current_user: User = Depends(require_admin),
     db=Depends(get_db),
 ):
     cursor = await db.execute("SELECT * FROM users WHERE id = ?", (user_id,))
@@ -154,11 +166,16 @@ async def change_user_password(
     if not row:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Rotating token_version signs the account out everywhere.
+    hashed = await run_in_threadpool(hash_password, body.password)
+    token_version = new_token_version()
     await db.execute(
-        "UPDATE users SET password = ?, password_meets_policy = ? WHERE id = ?",
-        (hash_password(body.password), True, user_id),
+        "UPDATE users SET password = ?, password_meets_policy = ?, token_version = ? WHERE id = ?",
+        (hashed, True, token_version, user_id),
     )
     await db.commit()
+    if user_id == current_user.id:
+        _set_session_cookie(response, current_user.username, current_user.role, token_version)
     return {"message": "Password updated"}
 
 

@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, Request
 
 from app.auth.models import User
-from app.auth.security import verify_jwt
+from app.auth.security import token_matches_user, verify_jwt
 from app.database import get_db
 
 
@@ -21,6 +21,8 @@ async def get_current_user(
     user = User.from_row(await cursor.fetchone())
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if not token_matches_user(payload, user.token_version):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     return user
 
 

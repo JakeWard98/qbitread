@@ -10,10 +10,10 @@ from starlette.responses import Response as StarletteResponse
 from app.auth.models import User
 from app.auth.router import router as auth_router
 from app.auth.schemas import password_meets_policy
-from app.auth.security import hash_password, verify_jwt
+from app.auth.security import hash_password, new_token_version, token_matches_user, verify_jwt, verify_password
 from app.config import settings
 from app.database import get_connection, init_db
-from app.middleware import CSRFMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
+from app.middleware import BodySizeLimitMiddleware, CSRFMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from app.qbit.client import QBitClient
 from app.qbit.router import router as qbit_router
 
@@ -47,6 +47,8 @@ async def bootstrap_admin():
         logger.info("No ADMIN_PASSWORD set — setup wizard will be available on first visit")
         return
 
+    is_placeholder = settings.ADMIN_PASSWORD.upper().startswith("CHANGE_ME")
+
     if not password_meets_policy(settings.ADMIN_PASSWORD):
         logger.warning(
             "ADMIN_PASSWORD does not meet password policy "
@@ -60,17 +62,27 @@ async def bootstrap_admin():
         )
         admin = await cursor.fetchone()
         if admin is None:
+            if is_placeholder:
+                raise RuntimeError(
+                    "ADMIN_PASSWORD is still the documented placeholder. Set a strong "
+                    "password, or remove ADMIN_PASSWORD to use the setup wizard."
+                )
             now = datetime.now(timezone.utc).isoformat()
             await db.execute(
-                "INSERT INTO users (username, password, role, created_at, password_meets_policy) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO users (username, password, role, created_at, password_meets_policy, token_version) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 (settings.ADMIN_USERNAME, hash_password(settings.ADMIN_PASSWORD), "admin", now,
-             password_meets_policy(settings.ADMIN_PASSWORD)),
+             password_meets_policy(settings.ADMIN_PASSWORD), new_token_version()),
             )
             await db.commit()
             logger.info("Admin user '%s' created", settings.ADMIN_USERNAME)
         else:
             logger.info("Admin user '%s' already exists", settings.ADMIN_USERNAME)
+            if is_placeholder and verify_password(settings.ADMIN_PASSWORD, admin["password"]):
+                logger.warning(
+                    "Admin user '%s' still uses the documented placeholder password. "
+                    "Change it in the admin panel now.", settings.ADMIN_USERNAME
+                )
 
 
 async def _has_users() -> bool:
@@ -95,12 +107,18 @@ async def _get_user_from_token(request: Request) -> User | None:
             "SELECT * FROM users WHERE username = ?", (payload["sub"],)
         )
         row = await cursor.fetchone()
-    return User.from_row(row)
+    user = User.from_row(row)
+    if not user or not token_matches_user(payload, user.token_version):
+        return None
+    return user
 
 
 app = FastAPI(title="qBitRead", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
 # Middleware (applied in reverse order)
+# BodySizeLimit must stay innermost: an error raised from a receive() wrapped
+# by a BaseHTTPMiddleware layer surfaces as an ExceptionGroup (400, not 413).
+app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)

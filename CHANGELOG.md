@@ -8,6 +8,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-10-28 audit — application code fixes from the manual security
+  review (2 Moderate, 10 Low, plus hygiene and docs).**
+  Two independent reviewers reproduced each issue against a running
+  instance (headless Chromium for the frontend). Every fix is covered by a
+  regression script (43 checks), the existing 25-check smoke suite, a
+  browser check and a local image + compose run.
+  - **Moderate: attribute injection through torrent names.** `escHtml()`
+    (`app.js`, `admin.js`) went through `textContent`/`innerHTML`, which
+    does not escape quotes, but its output was placed inside `title="…"`.
+    A torrent name containing `"` could add attributes to the dashboard
+    row, such as a full-screen `style` overlay that blocked Logout and
+    Admin. CSP stopped inline handlers. `escHtml()` now escapes
+    `& < > " '`. The torrent `state` badge, previously inserted raw, is
+    escaped too.
+  - **Moderate: login rate limit bypass behind a proxy.** With
+    `TRUSTED_PROXIES` set, the limiter keyed on the **left-most**
+    `X-Forwarded-For` entry, which the client controls (nginx's
+    `$proxy_add_x_forwarded_for` appends to it), so rotating that header
+    gave unlimited attempts. It now uses the right-most hop not in
+    `TRUSTED_PROXIES`, ignores non-IP entries, and buckets IPv6 clients per
+    /64.
+  - **Low (availability): the stock `docker-compose.yml` crash-looped.**
+    Compose always passes `TRUSTED_PROXIES=""`, which pydantic-settings
+    tried to JSON-decode (`SettingsError`), as did the documented
+    comma-separated form. Only the undocumented JSON array worked.
+    `TRUSTED_PROXIES` now accepts empty, comma-separated (IPs or CIDRs) or
+    a JSON array. Verified by running the stock compose file: the previous
+    image restarted 8 times; the fixed one is healthy.
+  - **Low: sessions survived a password reset.** JWTs carried only the
+    username, so a stolen cookie kept working for up to 12 hours after an
+    admin reset that password. A deleted user's token also came back to
+    life if the same username was re-created, with the new account's
+    role. Each user now has a random `token_version` embedded in the JWT
+    (`ver`). It is checked on every request and page load, rotated on
+    password change (an admin changing their own password gets a fresh
+    cookie), and unique per account. A migration backfills existing users.
+    **Upgrade note: sessions issued before this release are invalidated,
+    so everyone signs in once.**
+  - **Low: bcrypt blocked the event loop.** Password hashing and checks
+    (about 300 ms each) ran on the single uvicorn worker's loop, so
+    unauthenticated login attempts stalled every request. They now run in
+    a worker thread: page latency during 8 concurrent bad logins dropped
+    from 2.2 s to 0.02 s.
+  - **Low: unbounded request bodies.** Any body size was buffered and
+    parsed, including on the pre-auth, CSRF-exempt `/api/auth/setup`
+    (a 400 MB request reached about 1.9 GB RSS). A new innermost
+    `BodySizeLimitMiddleware` rejects bodies over 64 KiB with 413, whether
+    or not they declare a `Content-Length`.
+  - **Low: rate-limiter memory growth.** Keys were never evicted; empty
+    and stale buckets are now dropped.
+  - **Low: setup race.** Concurrent `/api/auth/setup` calls could each
+    create an admin. The insert is now atomic
+    (`INSERT … WHERE NOT EXISTS`): 5 concurrent requests now produce
+    exactly 1 admin.
+  - **Low: `QBIT_USERNAME` leaked with browser auth off.**
+    `/api/qbit/connection-info` always returned it, against the
+    credential-isolation rule. It is now only returned when
+    `ENABLE_BROWSER_AUTH=true`.
+  - **Low: ratio privilege enforced only in the UI.** `/api/torrents`
+    returned `ratio` to `user`-role accounts; it is now withheld (`null`)
+    server-side for that role.
+  - **Low: placeholder secrets accepted.** The documented
+    `SECRET_KEY=change-me-…` placeholder (a public key, letting anyone
+    forge admin JWTs) is now refused at startup, and a short `SECRET_KEY`
+    logs a warning. **Upgrade note: a deployment that uncommented that
+    placeholder will not start until it is removed or replaced.**
+    Creating the admin with the `ADMIN_PASSWORD=CHANGE_ME…` placeholder is
+    refused, and an existing admin still on it gets a startup warning. The
+    placeholders are gone from `docker-compose.hardcoded.yml`.
+  - **Low: container hardening.** Application code in the image is now
+    root-owned, with only `/app/data` writable by `appuser`, so a
+    file-write bug can no longer rewrite the app. Both compose files now
+    run with `read_only: true` (`tmpfs` for `/tmp`), `cap_drop: [ALL]` and
+    `no-new-privileges`. Verified: login works, effective capabilities are
+    0, `NoNewPrivs` is 1, and the root filesystem rejects writes.
+  - **CSP** gains `base-uri 'none'`, `object-src 'none'` and an
+    always-present `form-action 'self'`. With the unescaped `state`, a
+    `<base>` tag had been able to redirect relative navigations off-site.
+  - **Info:** passwords over bcrypt's 72-byte limit caused unhandled 500s
+    on login, setup and password changes. They are now a normal mismatch
+    on login and a 422 policy error elsewhere. The dashboard backoff no
+    longer polls *faster* than a configured refresh rate above 60 s.
+  - **Hygiene and docs.** `.gitignore` / `.dockerignore` now cover
+    `.secret_key` and `.env.*` variants (`.env.example` stays tracked).
+    Docs are corrected to match the code:
+    - the `TRUSTED_PROXIES` format and how `X-Forwarded-For` is used;
+    - the nginx example's upstream port (8112);
+    - the qualified credential-isolation claim;
+    - the IP-ban behaviour (probed every 60 s for up to 15 minutes);
+    - dev-run instructions (`DATABASE_PATH`, a policy-compliant example
+      password);
+    - CLAUDE.md's CSP, middleware order, session and Docker notes.
+
 - **2026-10-28 security audit (follow-up to the certifi patch) — Dockerfile
   build-integrity fixes, release-workflow action pins refreshed
   (`docker/build-push-action` v7.4.0), `pydantic-settings` 2.15.0 →

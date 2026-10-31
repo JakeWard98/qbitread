@@ -3,6 +3,14 @@ services:
     image: ghcr.io/jakeward98/qbitread:latest
     container_name: qbitread
     restart: unless-stopped
+    # Hardening: the app only writes to /app/data (the volume).
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     ports:
       # To restrict to localhost only: "127.0.0.1:8112:8000"
       - "8112:8000"

@@ -12,11 +12,14 @@ ENV/
 
 # Environment / secrets
 .env
-.env.local
+.env.*
+!.env.example
 .envrc
 
 # App data (SQLite DB, secret key)
 data/
+.secret_key
+**/.secret_key
 *.db
 *.sqlite
 *.sqlite3

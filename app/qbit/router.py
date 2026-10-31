@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api", tags=["qbit"])
 @router.get("/torrents", response_model=list[TorrentInfo])
 async def get_torrents(
     request: Request,
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     client = request.app.state.qbit_client
     try:
@@ -24,7 +24,12 @@ async def get_torrents(
     except Exception as e:
         logger.error("Failed to fetch torrents: %s", e)
         raise HTTPException(status_code=502, detail="Failed to communicate with qBittorrent")
-    return [TorrentInfo(**t) for t in raw]
+    torrents = [TorrentInfo(**t) for t in raw]
+    # Ratio is a monitor/admin privilege; withhold it, not just hide the column.
+    if user.role not in ("admin", "monitor"):
+        for t in torrents:
+            t.ratio = None
+    return torrents
 
 
 @router.get("/transfer", response_model=TransferInfo)
@@ -49,7 +54,8 @@ async def connection_info(
     client = request.app.state.qbit_client
     status = client.get_status()
     status["browser_host"] = settings.QBIT_BROWSER_HOST
-    status["qbit_username"] = settings.QBIT_USERNAME
+    # The qBit username is a credential: only the opt-in browser-auth flow may see it.
+    status["qbit_username"] = settings.QBIT_USERNAME if settings.ENABLE_BROWSER_AUTH else ""
     status["browser_auth_enabled"] = settings.ENABLE_BROWSER_AUTH
     return status
 
