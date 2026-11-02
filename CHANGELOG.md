@@ -8,6 +8,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-11-02 security audit — new `pydantic>=2.14.2` floor (2026-10-29
+  advisory batch, all Moderate), `certifi` floor raised to `2026.10.23`,
+  and code-review fixes (1 Low, 2 Info).**
+  Scheduled weekly audit. GitHub's Dependabot / code-scanning alert APIs
+  were not reachable from the audit environment (HTTP 403), so the check
+  was manual: `pip-audit` (PyPI advisory data) on `requirements.txt` and
+  on the fully resolved environment, a review of every upstream release
+  since the 2026-10-28 audit, and an independent code review.
+  - **Low: logout did not revoke the session token.** Logout only
+    cleared the browser's cookies. A copied `access_token` (from a shared
+    browser profile, proxy logs or a plain-HTTP deployment) kept working
+    for the rest of its 12 hours. Reproduced: after logout, replaying the
+    old admin token returned 200. Every JWT now carries a random `jti`,
+    and logout records it in a new `revoked_tokens` table. Rows are kept
+    only until the token would have expired and are purged on logout and
+    at startup. The jti is checked on every API request and page load,
+    through one shared validator (`user_from_token()`) instead of two
+    copies. Only the session that logs out is revoked; the account's other
+    devices stay signed in. Password change still revokes them all.
+    **Upgrade note: tokens issued before this release have no `jti` and
+    are rejected, so everyone signs in once.**
+  - **Info: a non-ASCII `X-CSRF-Token` header caused an unhandled 500.**
+    `hmac.compare_digest` raises `TypeError` on non-ASCII `str`, and the
+    error page skipped the security headers. The CSRF middleware now
+    compares bytes and returns the normal 403.
+  - **Info: reverse tabnabbing from "Open qBit Web UI".** The admin
+    panel's `window.open(…, '_blank')` now passes `noopener,noreferrer`,
+    so the opened qBittorrent page cannot navigate the admin tab.
+  - **pydantic (Moderate, CVSS 4.0 6.3, no CVE IDs assigned)** — seven
+    advisories published 2026-10-29: GHSA-qpmf-fgh3-ff25 (JSON
+    validation does not check extra keys against the `__pydantic_extra__`
+    key type), GHSA-3r8g-cqwr-jr29 (an aliased `TypedDict` / dataclass
+    field is overwritten by an unvalidated extra value), GHSA-955g-x97g-8mcp
+    (quadratic time and memory in multi-host URL validation),
+    GHSA-gj4f-r7mf-jjxh (unbounded exponent in `Fraction` validation), and
+    three in the `pydantic.v1` namespace only (GHSA-r49w-vh47-r4hf,
+    GHSA-49g6-96jj-f7r9, GHSA-jfv7-ghgv-gx4x). **None is reachable in
+    qbitread**: request bodies are validated with plain `BaseModel`
+    classes, with no `extra="allow"`, `TypedDict` / pydantic dataclasses,
+    `MultiHostUrl` / `*Dsn` types, `Fraction` fields or `pydantic.v1`.
+    pydantic is an unpinned transitive dependency (via `fastapi` and
+    `pydantic-settings`), so a fresh resolve already picks 2.14.2. The
+    new floor stops a stale resolver or cached build layer from
+    regressing, the same reasoning as the `certifi` floor.
+  - **certifi (hardening)** — `2026.10.23` also drops "emSign Root CA -
+    C1" and "emSign ECC Root CA - C3", the last eMudhra emSign roots left
+    in the bundle after GHSA-6q48-6c7w-9gw2. Upstream says the advisory's
+    minimum fixed version is unchanged. The floor moves from
+    `2026.10.19` to `2026.10.23` so qbitread never trusts an emSign root
+    that certifi no longer ships.
+  - **Reviewed, no change:** `fastapi` stays at 0.141.1 (0.142.0 to
+    0.162.0 have no security fixes). `starlette` 1.10.0 is resolved under
+    the existing `>=1.3.1` floor; its 1.8.0 to 1.10.0 releases list
+    hardening fixes but no advisories. `pydantic-settings` stays at
+    2.16.1, because 2.16.2 contains only bug fixes. `anyio` 4.16.0 has no
+    advisories. PyJWT, bcrypt, aiosqlite, httpx and uvicorn have had no
+    new releases or advisories. The pinned release-workflow actions are
+    still their latest tags, except `actions/checkout`, which stays on
+    v6.1.0: that release carries the v7 `pull_request_target` safety
+    backport, and the workflow only runs on `release`.
+  - **Reviewed, not changed (Info):** qbitread serves any `Host` header,
+    and until first-run setup is finished `/api/auth/setup` is open to
+    whoever reaches it first. On a LAN-only instance, DNS rebinding makes
+    that reachable from a visitor's browser. README and SECURITY.md now
+    say so and advise setting `ADMIN_PASSWORD`, or finishing setup, before
+    exposing the port. A `Host` allowlist would need a new setting and is
+    left for a separate change.
+  - **Independent code review** found nothing Critical, High or Moderate.
+    It confirmed that role checks, `token_version` revocation, the login
+    rate limit, the CSRF exemptions (FastAPI's strict content type blocks
+    cross-site form posts to login and setup), the body limit and output
+    escaping (tested in headless Chromium against hostile torrent names)
+    hold.
+  Validated: a 26-check regression script covers revocation of the
+  logged-out token on API, admin API and page routes; another session of
+  the same account staying valid; rejection of tokens with a missing,
+  empty or non-string `jti`; no duplicate rows and purging of expired rows;
+  the CSRF 403 on a non-ASCII header; and password change still revoking
+  every session. `pip-audit` reports no known vulnerabilities, and the floor is
+  enforced (`pydantic==2.14.1` together with `requirements.txt` cannot be
+  resolved). An 18-check smoke run covered headers, auth, CSRF, the
+  64 KiB body limit, 422 validation and the browser-auth 404, plus
+  `/api/torrents` and `/api/transfer` against a stub qBittorrent. The image
+  was also built from the repo Dockerfile on `python:3.12-slim` and run
+  with `read_only`, `cap_drop: [ALL]` and `no-new-privileges`. The apt
+  build-tools step had to be skipped because the audit sandbox cannot
+  reach the Debian mirror; bcrypt installs from its manylinux wheel. The
+  image has a full package inventory, no `pip`, root-owned code and
+  `appuser`-owned `/app/data`.
+
 - **2026-10-28 audit — application code fixes from the manual security
   review (2 Moderate, 10 Low, plus hygiene and docs).**
   Two independent reviewers reproduced each issue against a running

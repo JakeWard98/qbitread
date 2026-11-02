@@ -18,7 +18,26 @@ httpx==0.28.1
 # keys were compromised, enabling any-hostname TLS interception of an
 # https:// QBIT_HOST (and the qBit login it carries). 2026.10.18 dropped all
 # emSign roots; 2026.10.19 restored the unaffected ones.
-certifi>=2026.10.19
+# Floor raised to 2026.10.23 (2026-11-02 audit, hardening): that release
+# also drops "emSign Root CA - C1" and "emSign ECC Root CA - C3", the last
+# eMudhra emSign roots still in the bundle. Upstream says this does not change
+# the advisory's minimum fixed version; the floor just keeps qbitread from
+# trusting any emSign root certifi no longer ships.
+certifi>=2026.10.23
+# Security floor 2.14.2 — pydantic is an unpinned transitive dep (fastapi,
+# pydantic-settings), so without a floor a stale resolver or cached layer can
+# regress. Closes the 2026-10-29 pydantic advisory batch (all Moderate,
+# CVSS 4.0 6.3, no CVE IDs assigned; none reachable in qbitread, which
+# validates request bodies with plain BaseModel classes only — no
+# extra="allow", TypedDict / pydantic dataclasses, MultiHostUrl / *Dsn types,
+# Fraction fields or pydantic.v1):
+#   GHSA-qpmf-fgh3-ff25 — JSON validation skips the __pydantic_extra__ key type (fixed 2.14.2)
+#   GHSA-3r8g-cqwr-jr29 — aliased TypedDict / dataclass field overwritten by unvalidated extra data (fixed 2.14.2)
+#   GHSA-955g-x97g-8mcp — quadratic time/memory in multi-host URL validation (DoS; fixed 2.14.0)
+#   GHSA-gj4f-r7mf-jjxh — unbounded exponent in Fraction validation (DoS; fixed 2.14.0)
+#   GHSA-r49w-vh47-r4hf, GHSA-49g6-96jj-f7r9, GHSA-jfv7-ghgv-gx4x — pydantic.v1
+#     namespace only (validation bypass, quadratic DoS); fixed in 2.14.2
+pydantic>=2.14.2
 # 2.15.0 closes the 2026-09 PyJWT advisory batch (CVE IDs since assigned:
 # CVE-2026-101917/101918, CVE-2026-102265..102275, CVE-2026-103001;
 # none reachable in qbitread's single-algorithm symmetric HS256 string-secret

@@ -44,6 +44,8 @@ def create_jwt(username: str, role: str, token_version: str) -> str:
         "sub": username,
         "role": role,
         "ver": token_version,
+        # Per-token ID so logout can revoke this one session server-side.
+        "jti": secrets.token_urlsafe(16),
         "iat": now,
         "exp": now + timedelta(minutes=settings.JWT_EXPIRY_MINUTES),
     }

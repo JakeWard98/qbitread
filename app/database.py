@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 
 import aiosqlite
@@ -28,6 +29,14 @@ CREATE_APP_SETTINGS_TABLE = """\
 CREATE TABLE IF NOT EXISTS app_settings (
     key VARCHAR(50) PRIMARY KEY,
     value TEXT NOT NULL
+)
+"""
+
+# Session tokens revoked by logout, kept only until they would have expired.
+CREATE_REVOKED_TOKENS_TABLE = """\
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+    jti VARCHAR(64) PRIMARY KEY,
+    expires_at INTEGER NOT NULL
 )
 """
 
@@ -141,4 +150,6 @@ async def init_db():
         await conn.execute(CREATE_USERS_TABLE)
         await _migrate_add_token_version(conn)
         await _migrate_add_app_settings(conn)
+        await conn.execute(CREATE_REVOKED_TOKENS_TABLE)
+        await conn.execute("DELETE FROM revoked_tokens WHERE expires_at <= ?", (int(time.time()),))
         await conn.commit()
