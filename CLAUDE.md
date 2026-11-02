@@ -104,6 +104,7 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 - When `SECURE_COOKIES=true`, cookies get the Secure flag (required behind HTTPS reverse proxy).
 - JWT expiry is 12 hours by default (`JWT_EXPIRY_MINUTES=720`).
 - Each user has a random `token_version` that is embedded in their JWT (`ver`) and checked on every request. It is regenerated on password change, revoking existing sessions, and is unique per account, so a re-created username never revives an old token.
+- Every JWT carries a random `jti`. Logout records it in the `revoked_tokens` table (rows are purged once the token would have expired), so a copied cookie stops working at logout while the account's other sessions stay signed in. Tokens without a `jti` are rejected. Both the API dependency and the page routes validate through `user_from_token()` in `app/auth/dependencies.py`; do not add a second validation path.
 - bcrypt runs in a worker thread (`run_in_threadpool`), never on the event loop. Passwords are capped at 72 bytes (bcrypt's limit).
 - Passwords are hashed with **bcrypt** (with salt). Never store or compare plaintext passwords.
 

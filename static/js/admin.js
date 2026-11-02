@@ -549,7 +549,8 @@
           }
           return;
         }
-        window.open(validUrl, '_blank');
+        // noopener: the opened qBit page must not be able to navigate this tab.
+        window.open(validUrl, '_blank', 'noopener,noreferrer');
       });
     }
 

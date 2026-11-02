@@ -241,7 +241,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         cookie_token = request.cookies.get("csrf_token")
         header_token = request.headers.get("x-csrf-token")
 
-        if not cookie_token or not header_token or not hmac.compare_digest(cookie_token, header_token):
+        # Compare as bytes: compare_digest raises TypeError on non-ASCII str,
+        # which turned a malformed header into an unhandled 500.
+        if not cookie_token or not header_token or not hmac.compare_digest(
+            cookie_token.encode(), header_token.encode()
+        ):
             return Response(
                 content='{"detail":"CSRF validation failed"}',
                 status_code=403,

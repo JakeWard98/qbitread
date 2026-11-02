@@ -7,10 +7,11 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response as StarletteResponse
 
+from app.auth.dependencies import user_from_token
 from app.auth.models import User
 from app.auth.router import router as auth_router
 from app.auth.schemas import password_meets_policy
-from app.auth.security import hash_password, new_token_version, token_matches_user, verify_jwt, verify_password
+from app.auth.security import hash_password, new_token_version, verify_password
 from app.config import settings
 from app.database import get_connection, init_db
 from app.middleware import BodySizeLimitMiddleware, CSRFMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
@@ -92,25 +93,12 @@ async def _has_users() -> bool:
 
 
 async def _get_user_from_token(request: Request) -> User | None:
-    """Read JWT subject and look up the user in the database.
-
-    Returns the User if the token is valid and the user exists, else None.
-    """
+    """Return the User for a valid, unrevoked session cookie, else None."""
     token = request.cookies.get("access_token")
     if not token:
         return None
-    payload = verify_jwt(token)
-    if not payload:
-        return None
     async with get_connection() as db:
-        cursor = await db.execute(
-            "SELECT * FROM users WHERE username = ?", (payload["sub"],)
-        )
-        row = await cursor.fetchone()
-    user = User.from_row(row)
-    if not user or not token_matches_user(payload, user.token_version):
-        return None
-    return user
+        return await user_from_token(db, token)
 
 
 app = FastAPI(title="qBitRead", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)

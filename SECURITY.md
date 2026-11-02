@@ -54,7 +54,9 @@ single qBittorrent instance behind a trusted reverse proxy.
   the request comes from an IP listed in `TRUSTED_PROXIES`, and then only
   the right-most hop your proxies did not add is used, so a client-supplied
   header cannot pick its own rate-limit bucket.
-- **Stolen or stale sessions.** Changing a user's password revokes all of
+- **Stolen or stale sessions.** Logging out revokes that session's token on
+  the server, so a copied cookie stops working immediately rather than at
+  expiry. Changing a user's password revokes all of
   that user's existing sessions, and deleting a user permanently invalidates
   their tokens (re-creating the same username does not revive them).
 - **Oversized requests.** Request bodies over 64 KiB are rejected with 413
@@ -64,6 +66,11 @@ single qBittorrent instance behind a trusted reverse proxy.
 
 - **A compromised qBittorrent instance.** If your qBit itself is malicious,
   qBitRead will faithfully display whatever it reports.
+- **An unclaimed setup wizard.** Until the first admin account exists,
+  `/api/auth/setup` is open to whoever reaches it first. qBitRead does not
+  check the `Host` header, so on a LAN-only instance a malicious website can
+  reach it through a visitor's browser (DNS rebinding). Set `ADMIN_PASSWORD`,
+  or finish setup, before exposing the port.
 - **Container escape or host compromise.** qBitRead runs as non-root inside
   the container, but that only mitigates — not eliminates — container escape
   risks. Keep the host patched.

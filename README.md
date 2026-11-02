@@ -90,6 +90,8 @@ docker compose up -d
 
 If you set `ADMIN_PASSWORD` in `.env`, the admin account is created automatically. Otherwise, a setup wizard guides you through it on first visit.
 
+> **Note:** until the first admin account exists, anyone who can reach qBitRead can complete the setup wizard and become admin. Set `ADMIN_PASSWORD`, or finish setup yourself, before the port is reachable by anyone else.
+
 ## Docker Image
 
 Published to GitHub Container Registry with `linux/amd64` and `linux/arm64` support.
