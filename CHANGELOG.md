@@ -8,6 +8,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-11-09 security audit — new security floors for three unpinned
+  transitive deps: `h11>=0.16.0` (Critical, CVSS 9.1), `anyio>=4.14.2`
+  (Critical, CVSS 4.0 9.3) and `idna>=3.15` (Moderate).**
+  Scheduled weekly audit. GitHub's Dependabot alert API is not exposed to
+  the audit environment, so the check was manual. It covered `pip-audit` on
+  `requirements.txt` and on the fully resolved environment (0 findings),
+  and a scan of the PyPI advisory data for **every** release of each
+  transitive dependency. It also covered the upstream repo advisory pages
+  (starlette, uvicorn, fastapi, pydantic, pydantic-settings, httpx, h11,
+  anyio, PyJWT, certifi) and a review of every release since the
+  2026-11-02 audit.
+  - **The gap:** `pip-audit` only checks what a fresh resolve picks today.
+    That is anyio 4.16.0, h11 0.16.0 and idna 3.20, all of them patched.
+    But `requirements.txt` did not *require* those versions. A dry-run
+    resolve accepted `anyio==4.14.1`, `h11==0.14.0` (through `httpcore
+    1.0.8`) and `idna==3.14` without complaint, so a stale resolver, a
+    cached build layer or a pinned downstream install could ship them. Each
+    now has a floor, using the same reasoning as the existing `certifi` and
+    `pydantic` floors. The fresh-resolve set is unchanged.
+  - **h11 `>=0.16.0`** — GHSA-vqfr-h8mv-ghfj / CVE-2025-43859 (Critical,
+    CVSS 9.1). h11 accepted malformed chunked-encoding bodies, which
+    enables request smuggling behind a reverse proxy that parses them
+    differently. **Reachable in principle:** qbitread runs plain `uvicorn`
+    (no httptools), so h11 parses every incoming request. uvicorn itself
+    only asks for `h11>=0.8`.
+  - **anyio `>=4.14.2`** — the 2026-07-07 batch:
+    GHSA-82r6-8w77-94w6 / CVE-2026-63374 (Critical, CVSS 4.0 9.3:
+    `TLSStream` encodes IDN host names with IDNA 2003, so a certificate for
+    the 2003 form passes validation), GHSA-3w57-8xmc-8v26 / CVE-2026-63349
+    (High, CVSS 4.0 7.0: `open_process()` mishandles `extra_groups`), and
+    GHSA-5p39-cfhj-2xmp / CVE-2026-64847 (Moderate, 6.8: process-pool
+    workers block on stderr). **Not reachable:** httpx IDNA-2008-encodes
+    `QBIT_HOST` before httpcore passes it to `TLSStream.wrap()`. Checked:
+    `httpx.URL("https://bücher.example").raw_host` is
+    `b"xn--bcher-kva.example"`. qbitread never spawns processes.
+  - **idna `>=3.15`** — GHSA-65pc-fj4g-8rjx / CVE-2026-45409 (Moderate,
+    CVSS 4.0 6.9): crafted input makes `idna.encode()` slow, bypassing the
+    CVE-2024-3651 fix. **Not reachable:** only the operator-set
+    `QBIT_HOST` is ever IDNA-encoded.
+  - **Reviewed, no change:** `fastapi` stays at 0.141.1. 0.162.1 and
+    0.162.2 (2026-11-07) are docs and internal changes only. `pydantic`
+    2.14.3 (2026-11-05) is performance and bug fixes with no advisory, and
+    is already picked up under the `>=2.14.2` floor. `pydantic-settings`
+    2.16.2, `typing-inspection` 0.4.5 and `click` 8.5.1 have no
+    advisories. starlette, uvicorn, httpx, httpcore, certifi, PyJWT,
+    bcrypt and aiosqlite have had no new release or advisory since the
+    last audit.
+  Validated: with the new floors, `pip install --dry-run -r
+  requirements.txt` refuses each of `anyio==4.14.1`, `h11==0.14.0` and
+  `idna==3.14`. A fresh resolve still produces the same 21 packages, and
+  `pip-audit -r requirements.txt` reports no known vulnerabilities.
+
 - **2026-11-02 security audit — new `pydantic>=2.14.2` floor (2026-10-29
   advisory batch, all Moderate), `certifi` floor raised to `2026.10.23`,
   and code-review fixes (1 Low, 2 Info).**
