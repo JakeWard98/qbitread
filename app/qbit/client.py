@@ -21,6 +21,14 @@ class QBitClient:
         self._BAN_PROBE_INTERVAL = 60  # retry every 60s during ban
         self._ban_detected_at = 0.0  # when ban was first detected
         self._login_lock = asyncio.Lock()
+        # Read coalescing: concurrent callers for the same path share one
+        # upstream fetch, and its result is reused for _CACHE_TTL seconds
+        # (below the 2s minimum refresh rate, so the dashboard never sees
+        # stale data). Without it, N parallel /api/torrents requests from a
+        # logged-in user meant N full torrent lists held in memory at once.
+        self._CACHE_TTL = 1.0
+        self._cache: dict[str, tuple[float, dict | list]] = {}
+        self._inflight: dict[str, asyncio.Task] = {}
 
     async def _login(self):
         async with self._login_lock:
@@ -155,11 +163,40 @@ class QBitClient:
         self.reset_circuit_breaker()
         await self._login()
 
+    async def _shared_get(self, path: str) -> dict | list:
+        """GET `path` via _request(), sharing one in-flight fetch between
+        concurrent callers and reusing a fresh result for _CACHE_TTL seconds.
+        Errors are not cached. Callers must not mutate the returned data."""
+        hit = self._cache.get(path)
+        if hit is not None and time.monotonic() - hit[0] < self._CACHE_TTL:
+            return hit[1]
+        task = self._inflight.get(path)
+        if task is None:
+            task = asyncio.create_task(self._fetch_and_cache(path))
+            self._inflight[path] = task
+            task.add_done_callback(lambda t, p=path: self._fetch_done(p, t))
+        # shield: one caller disconnecting must not cancel the fetch the
+        # other callers are waiting on.
+        return await asyncio.shield(task)
+
+    async def _fetch_and_cache(self, path: str) -> dict | list:
+        data = await self._request(path)
+        self._cache[path] = (time.monotonic(), data)
+        return data
+
+    def _fetch_done(self, path: str, task: asyncio.Task) -> None:
+        if self._inflight.get(path) is task:
+            del self._inflight[path]
+        if not task.cancelled():
+            task.exception()  # mark retrieved even if every waiter went away
+
     async def get_torrents(self) -> list[dict]:
-        return await self._request("/api/v2/torrents/info")
+        return await self._shared_get("/api/v2/torrents/info")
 
     async def get_transfer_info(self) -> dict:
-        return await self._request("/api/v2/transfer/info")
+        return await self._shared_get("/api/v2/transfer/info")
 
     async def close(self):
+        for task in list(self._inflight.values()):
+            task.cancel()
         await self._client.aclose()

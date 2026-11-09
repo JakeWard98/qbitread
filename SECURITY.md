@@ -61,6 +61,13 @@ single qBittorrent instance behind a trusted reverse proxy.
   their tokens (re-creating the same username does not revive them).
 - **Oversized requests.** Request bodies over 64 KiB are rejected with 413
   before they are buffered.
+- **Request amplification against qBittorrent.** Concurrent dashboard
+  requests share one upstream fetch and one rendered response, cached for
+  1 second. A logged-in user opening many parallel requests cannot multiply
+  load on qBit or memory use in qBitRead.
+- **Resurrected bootstrap admin.** `ADMIN_PASSWORD` only creates the admin
+  on an empty install. An admin account another admin deleted stays
+  deleted across restarts.
 
 ### What qBitRead does **not** defend against
 
@@ -93,6 +100,9 @@ single qBittorrent instance behind a trusted reverse proxy.
 - Leave `ENABLE_BROWSER_AUTH` at its default `false` unless you actively need
   IP-ban recovery from your browser's IP.
 - Configure `TRUSTED_PROXIES` so rate limiting counts the real client IP.
+  If you run uvicorn yourself rather than the image, keep
+  `--no-proxy-headers` on its command line. Otherwise uvicorn trusts
+  `X-Forwarded-For` from loopback on its own.
 - Back up the `/app/data` volume (contains `qbitread.db` and `.secret_key`)
   before upgrades.
 - Rotate operator passwords periodically via the admin panel.

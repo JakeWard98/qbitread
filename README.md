@@ -88,7 +88,7 @@ docker compose up -d
 # Open http://localhost:8112
 ```
 
-If you set `ADMIN_PASSWORD` in `.env`, the admin account is created automatically. Otherwise, a setup wizard guides you through it on first visit.
+If you set `ADMIN_PASSWORD` in `.env`, the admin account is created automatically on a fresh install. Otherwise, a setup wizard guides you through it on first visit. `ADMIN_PASSWORD` only bootstraps an empty install: once any account exists, deleting the `ADMIN_USERNAME` account is permanent, and it is not re-created on restart.
 
 > **Note:** until the first admin account exists, anyone who can reach qBitRead can complete the setup wizard and become admin. Set `ADMIN_PASSWORD`, or finish setup yourself, before the port is reachable by anyone else.
 
@@ -131,7 +131,7 @@ Pre-releases do **not** update `latest`.
 | `QBIT_PASSWORD` | Yes | — | qBittorrent password |
 | `SECRET_KEY` | No | auto-generated | JWT signing key. Auto-generated and persisted to the data volume if not set |
 | `ADMIN_USERNAME` | No | `admin` | Bootstrap admin username |
-| `ADMIN_PASSWORD` | No | — | Bootstrap admin password. If omitted, a setup wizard runs on first visit |
+| `ADMIN_PASSWORD` | No | — | Bootstrap admin password, used only while no accounts exist. If omitted, a setup wizard runs on first visit |
 | `SECURE_COOKIES` | No | `false` | Set to `true` behind an HTTPS reverse proxy |
 | `QBIT_BROWSER_HOST` | No | — | Browser-accessible qBittorrent URL (used for the browser auth feature) |
 | `JWT_EXPIRY_MINUTES` | No | `720` | Session token lifetime in minutes (default: 12 hours) |
@@ -184,7 +184,7 @@ server {
 }
 ```
 
-If your reverse proxy runs on a different IP from the container, set `TRUSTED_PROXIES` to its IP so rate limiting uses the real client IP rather than the proxy IP. qBitRead then uses the right-most `X-Forwarded-For` entry your proxies did not add, so a client cannot dodge the limit by sending its own header.
+If your reverse proxy runs on a different IP from the container, set `TRUSTED_PROXIES` to its IP so rate limiting uses the real client IP rather than the proxy IP. qBitRead then uses the right-most `X-Forwarded-For` entry your proxies did not add, so a client cannot dodge the limit by sending its own header. `X-Forwarded-For` is never trusted from any other peer, loopback included: if you run uvicorn directly (no Docker) behind a proxy on the same host, set `TRUSTED_PROXIES=127.0.0.1,::1` and keep `--no-proxy-headers` on the uvicorn command line.
 
 ## Security
 
@@ -223,7 +223,7 @@ export QBIT_PASSWORD=changeme
 export ADMIN_PASSWORD='Dev-Passw0rd!'
 export SECURE_COOKIES=false
 export DATABASE_PATH=./data/qbitread.db   # default /app/data is for the container
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000 --no-proxy-headers
 ```
 
 ## Tech Stack

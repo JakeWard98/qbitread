@@ -60,7 +60,7 @@ requirements.txt        # Python dependencies (pinned)
 # Development (no Docker)
 pip install -r requirements.txt
 export QBIT_HOST=http://localhost:8080 QBIT_PASSWORD=changeme ADMIN_PASSWORD='Dev-Passw0rd!' SECURE_COOKIES=false DATABASE_PATH=./data/qbitread.db
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000 --no-proxy-headers
 
 # Production (Docker)
 cp .env.example .env    # Edit with your qBittorrent details
@@ -86,7 +86,7 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 - **Dark minimal UI**: The interface uses CSS variables for theming. The design is intentionally sparse — no unnecessary visual complexity.
 - **Single-page feel**: Each page (dashboard, login, setup, admin) is a separate HTML template served by FastAPI, with JS handling dynamic behavior. Not a true SPA — no client-side routing.
 - **Pydantic for all validation**: Request/response schemas use Pydantic models. Config uses pydantic-settings.
-- **Circuit breaker on qBit client**: The `QBitClient` (`app/qbit/client.py`) uses exponential backoff (10s to 300s) on failed logins and detects IP bans (login probed every 60s for up to 15 minutes). Respect this pattern when modifying the client.
+- **Circuit breaker on qBit client**: The `QBitClient` (`app/qbit/client.py`) uses exponential backoff (10s to 300s) on failed logins and detects IP bans (login probed every 60s for up to 15 minutes). Respect this pattern when modifying the client. Reads go through `_shared_get()`: concurrent callers share one in-flight upstream fetch, and the result is reused for 1 second (below the 2-second minimum refresh rate). `/api/torrents` also reuses one rendered body per ratio visibility (`_render_torrents()` in `app/qbit/router.py`). Callers must not mutate the shared data.
 
 ## Security Requirements
 
@@ -118,6 +118,7 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 
 - Login endpoint is rate-limited to 5 attempts per minute per IP (sliding window).
 - Honours `X-Forwarded-For` only when the direct peer is in `TRUSTED_PROXIES`, and then uses the right-most hop not in `TRUSTED_PROXIES` (never the client-supplied left-most entry). IPv6 clients are bucketed per /64.
+- uvicorn runs with `--no-proxy-headers` (Dockerfile CMD and the dev command). Without it, uvicorn rewrites the client address from `X-Forwarded-For` for any loopback peer, before this check runs.
 
 ### Security Headers
 
@@ -139,7 +140,9 @@ Applied via `SecurityHeadersMiddleware` in `app/middleware.py`:
 - Container runs as non-root `appuser` (no login shell). Application code is root-owned; only `/app/data` is writable by `appuser`.
 - The shipped compose files run the container with a read-only root filesystem (`tmpfs` for `/tmp`), `cap_drop: [ALL]` and `no-new-privileges`.
 - Multi-stage build minimizes attack surface.
-- SQLite database and secret key persisted in `/app/data/` volume.
+- SQLite database and secret key persisted in `/app/data/` volume. The data dir is created `0700`, a new DB `0600`, and `.secret_key` is kept at `0600` (tightened at startup if looser).
+- `ADMIN_PASSWORD` bootstraps the admin only while the `users` table is empty. Once any account exists, a deleted `ADMIN_USERNAME` is not re-created.
+- Settings use `hide_input_in_errors=True`, so a config validation error never echoes env values (passwords, `SECRET_KEY`) into the log.
 
 ## Code Style & Patterns
 
@@ -147,7 +150,7 @@ Applied via `SecurityHeadersMiddleware` in `app/middleware.py`:
 - **Middleware order matters**: SecurityHeaders -> RateLimiting -> CSRF -> BodySizeLimit (applied in reverse in `main.py`). BodySizeLimit (64 KiB, 413) must stay innermost.
 - **Error handling**: qBit client returns structured error responses; frontend shows connection status indicator with error messages.
 - **Frontend polling**: Dashboard polls `/api/torrents` and `/api/transfer` at a configurable interval (default 5 seconds, stored in `app_settings` DB table, adjustable via admin panel). On errors, it backs off exponentially up to 60 seconds.
-- **Dependencies are pinned** in `requirements.txt`. Update versions deliberately.
+- **Dependencies are pinned** in `requirements.txt`. Direct deps use `==` (starlette uses a `>=` security floor). Security-relevant transitive deps (`h11`, `anyio`, `idna`, `certifi`, `pydantic`) carry `>=` floors, each with a comment naming the advisory it closes. Update versions deliberately.
 
 ## Environment Variables
 

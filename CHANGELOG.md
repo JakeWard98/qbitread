@@ -8,6 +8,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-11-09 audit — application code fixes from the independent code
+  review (3 Low, 2 Info).**
+  The review found nothing Critical, High or Moderate. It reproduced each
+  issue below against a running instance with a stub qBittorrent.
+  - **Low: uvicorn's own proxy-header handling bypassed the login rate
+    limit.** uvicorn trusts `X-Forwarded-For` from `127.0.0.1` / `::1` by
+    default and rewrites the client address from it before qbitread's
+    `TRUSTED_PROXIES` check runs, even when `TRUSTED_PROXIES` is empty. Any
+    deployment whose direct peer is loopback and passes the client's
+    header through (TCP/stream proxies, SSH or ngrok-style tunnels,
+    sidecars sharing the network namespace) let a client pick a fresh
+    rate-limit bucket per attempt. Reproduced: 12 wrong passwords with
+    rotating headers never hit 429. The Dockerfile CMD and the documented
+    dev command now pass `--no-proxy-headers`, so `TRUSTED_PROXIES` is the
+    only way to trust the header. The default Docker bridge setup was not
+    affected. **Upgrade note:** if you run uvicorn yourself behind a proxy
+    on the same host, set `TRUSTED_PROXIES=127.0.0.1,::1`.
+  - **Low: any logged-in user could exhaust memory through
+    `/api/torrents`.** Every request made its own upstream fetch and built
+    and serialised its own copy of every torrent. With a 20k-torrent
+    qBittorrent, 30 parallel requests from a `user` account took the app
+    from 144 MB to 820 MB and stalled every user for 8 s. `QBitClient` now
+    shares one in-flight fetch between concurrent callers and reuses the
+    result for 1 s, below the 2 s minimum refresh rate. `/api/torrents`
+    reuses one rendered body per ratio visibility. Same test now: 1
+    upstream fetch instead of 30, 205 MB, 2.1 s, and a byte-identical
+    response. Errors are not cached, and ratio is still withheld from
+    `user` accounts.
+  - **Low: a deleted bootstrap admin came back on every restart.** With
+    `ADMIN_PASSWORD` set, startup re-created `ADMIN_USERNAME` whenever it
+    was missing. An admin who deleted that shared account (for example
+    because the env password leaked) silently got it back, password
+    included. The bootstrap now runs only while the `users` table is
+    empty. Otherwise it logs a warning and leaves the account deleted.
+  - **Info: a config error could print secrets to the log.** A
+    `ValueError` from the settings validator (e.g. the placeholder
+    `SECRET_KEY`) made pydantic echo the head and tail of the raw input,
+    which can include `ADMIN_PASSWORD`. Settings now use
+    `hide_input_in_errors=True`.
+  - **Info: data-dir permissions were looser than intended.** `config.py`
+    created the data dir 0755 before `database.py`'s 0700 could apply.
+    The DB file was created 0644 (bcrypt hashes world-readable on
+    bare-metal installs), and an existing `.secret_key` was never checked.
+    A new data dir is now 0700 (in the image too), a new DB 0600, and a
+    looser `.secret_key` is tightened to 0600 at startup. Existing DB
+    files are left as they are.
+  - **Reviewed, clean:** the 2026-11-02 changes (logout revocation, the
+    `jti` check in `user_from_token()`, revoked-token purging, the bytes
+    CSRF compare). Also clean: the CSRF exemptions, a 25-way setup race
+    (one admin created), login timing (no user enumeration), admin-only
+    routes, SQL parameterisation, `innerHTML` sinks, static path traversal,
+    passkey stripping and generic error bodies. All six workflow actions
+    are SHA-pinned to their tags.
+  Validated with a 23-check regression script, including the bypass
+  reproduced against uvicorn without the flag, and a 17-check smoke run:
+  headers, CSRF, 413, 422, browser-auth 404, role checks, logout
+  revocation. The image was also built from the repo Dockerfile and run
+  with `read_only`, `cap_drop: [ALL]` and `no-new-privileges`. As in the
+  last audit, the sandbox cannot reach the Debian mirror, so the apt
+  build-tools step was skipped (bcrypt installs from its wheel). In the
+  container: `--no-proxy-headers` in the CMD, a 0700 `/app/data`, 0600 DB
+  and key, and the login limit holding against rotating
+  `X-Forwarded-For` from loopback.
+
 - **2026-11-09 security audit — new security floors for three unpinned
   transitive deps: `h11>=0.16.0` (Critical, CVSS 9.1), `anyio>=4.14.2`
   (Critical, CVSS 4.0 9.3) and `idna>=3.15` (Moderate).**

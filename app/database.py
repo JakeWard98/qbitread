@@ -137,7 +137,16 @@ async def _migrate_add_app_settings(conn):
 
 
 async def init_db():
+    new_db = not os.path.exists(db_path)
     async with aiosqlite.connect(db_path) as conn:
+        if new_db:
+            # The DB holds bcrypt hashes: create it owner-only. SQLite gives
+            # its journal/WAL files the same mode as the DB file. Existing
+            # DBs are left as they are, in case operators rely on the mode.
+            try:
+                os.chmod(db_path, 0o600)
+            except OSError as exc:
+                logger.warning("Could not restrict permissions on %s: %s", db_path, exc)
         conn.row_factory = aiosqlite.Row
         # Check if users table exists before running migrations
         cursor = await conn.execute(
