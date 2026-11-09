@@ -49,10 +49,15 @@ COPY templates/ ./templates/
 COPY static/ ./static/
 
 # Only the data volume is writable by the app user; code stays root-owned.
-RUN mkdir -p /app/data && chown appuser:appuser /app/data
+# 0700: the DB holds bcrypt hashes and .secret_key the JWT signing key.
+RUN install -d -m 0700 -o appuser -g appuser /app/data
 
 USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# --no-proxy-headers: uvicorn otherwise rewrites the client address from
+# X-Forwarded-For for any loopback peer, ahead of qbitread's own
+# TRUSTED_PROXIES check, which lets a loopback tunnel dodge the login rate
+# limit. qbitread does its own XFF handling (app/middleware.py).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-proxy-headers"]

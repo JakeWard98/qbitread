@@ -10,6 +10,19 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 
+def _restrict_mode(path: str, mode: int) -> None:
+    """Best-effort: drop group/other permission bits on a secret file. A file
+    we cannot chmod (e.g. owned by another user on a bind mount) is left alone
+    with a warning rather than failing startup."""
+    try:
+        current = os.stat(path).st_mode & 0o777
+        if current & ~mode:
+            os.chmod(path, mode)
+            logger.warning("Tightened permissions on %s from %o to %o", path, current, mode)
+    except OSError as exc:
+        logger.warning("Could not restrict permissions on %s: %s", path, exc)
+
+
 class Settings(BaseSettings):
     # qBittorrent connection
     QBIT_HOST: str
@@ -48,7 +61,10 @@ class Settings(BaseSettings):
     # the server" model. Enable only if you understand the trade-off.
     ENABLE_BROWSER_AUTH: bool = False
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # hide_input_in_errors: a validation error would otherwise echo the raw
+    # settings dict (truncated head and tail), which can include
+    # ADMIN_PASSWORD, QBIT_PASSWORD or SECRET_KEY, into the startup log.
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     @field_validator("TRUSTED_PROXIES", mode="before")
     @classmethod
@@ -80,9 +96,12 @@ class Settings(BaseSettings):
         key_file = os.path.join(data_dir, ".secret_key")
 
         try:
-            os.makedirs(data_dir, exist_ok=True)
+            # 0700 to match database.py; this runs first, so it decides the
+            # mode a newly created data dir gets.
+            os.makedirs(data_dir, mode=0o700, exist_ok=True)
 
             if os.path.exists(key_file):
+                _restrict_mode(key_file, 0o600)
                 with open(key_file) as f:
                     self.SECRET_KEY = f.read().strip()
                 if self.SECRET_KEY:

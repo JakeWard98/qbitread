@@ -1,7 +1,8 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from pydantic import TypeAdapter
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User
@@ -11,6 +12,27 @@ from app.qbit.schemas import TorrentInfo, TransferInfo
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["qbit"])
+
+_torrent_list = TypeAdapter(list[TorrentInfo])
+# Rendered /api/torrents bodies, one per ratio visibility, for the raw list the
+# qBit client is currently sharing (see QBitClient._shared_get). Concurrent
+# requests then share one serialised body instead of each building its own
+# copy of every torrent. Holding `raw` keeps the identity check sound.
+_rendered: dict[bool, tuple[list, bytes]] = {}
+
+
+def _render_torrents(raw: list[dict], show_ratio: bool) -> bytes:
+    hit = _rendered.get(show_ratio)
+    if hit is not None and hit[0] is raw:
+        return hit[1]
+    torrents = [TorrentInfo(**t) for t in raw]
+    # Ratio is a monitor/admin privilege; withhold it, not just hide the column.
+    if not show_ratio:
+        for t in torrents:
+            t.ratio = None
+    body = _torrent_list.dump_json(torrents)
+    _rendered[show_ratio] = (raw, body)
+    return body
 
 
 @router.get("/torrents", response_model=list[TorrentInfo])
@@ -24,12 +46,8 @@ async def get_torrents(
     except Exception as e:
         logger.error("Failed to fetch torrents: %s", e)
         raise HTTPException(status_code=502, detail="Failed to communicate with qBittorrent")
-    torrents = [TorrentInfo(**t) for t in raw]
-    # Ratio is a monitor/admin privilege; withhold it, not just hide the column.
-    if user.role not in ("admin", "monitor"):
-        for t in torrents:
-            t.ratio = None
-    return torrents
+    body = _render_torrents(raw, show_ratio=user.role in ("admin", "monitor"))
+    return Response(content=body, media_type="application/json")
 
 
 @router.get("/transfer", response_model=TransferInfo)

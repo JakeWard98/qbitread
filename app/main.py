@@ -63,6 +63,19 @@ async def bootstrap_admin():
         )
         admin = await cursor.fetchone()
         if admin is None:
+            # Bootstrap only a brand-new install. Once any account exists, a
+            # missing ADMIN_USERNAME means an admin deleted it on purpose
+            # (e.g. because the env password leaked); re-creating it from the
+            # env password on every restart would silently undo that.
+            cursor = await db.execute("SELECT 1 FROM users LIMIT 1")
+            if await cursor.fetchone() is not None:
+                logger.warning(
+                    "Admin user '%s' does not exist but other users do; not "
+                    "re-creating it from ADMIN_PASSWORD. Remove ADMIN_PASSWORD "
+                    "from the environment if the account was deleted on purpose.",
+                    settings.ADMIN_USERNAME,
+                )
+                return
             if is_placeholder:
                 raise RuntimeError(
                     "ADMIN_PASSWORD is still the documented placeholder. Set a strong "
