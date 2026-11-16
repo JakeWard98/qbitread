@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import logging
 import os
@@ -75,6 +76,24 @@ class Settings(BaseSettings):
                 return json.loads(v)
             return [p.strip() for p in v.split(",") if p.strip()]
         return v
+
+    @field_validator("TRUSTED_PROXIES", mode="after")
+    @classmethod
+    def _validate_trusted_proxies(cls, v: list[str]) -> list[str]:
+        # Refuse to start on a malformed entry. It used to make the rate
+        # limiter silently ignore every entry after it, so all clients shared
+        # the proxy's login bucket. Entries are normalised to networks, so
+        # "127.0.0.1", "::1" and "0:0:0:0:0:0:0:1" all match their peers.
+        out = []
+        for p in v:
+            try:
+                out.append(str(ipaddress.ip_network(p.strip(), strict=False)))
+            except ValueError:
+                raise ValueError(
+                    f"TRUSTED_PROXIES entry {p.strip()!r} is not an IP address or CIDR "
+                    "network (host names are not supported)"
+                ) from None
+        return out
 
     @model_validator(mode="after")
     def _ensure_secret_key(self) -> "Settings":

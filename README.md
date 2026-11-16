@@ -136,7 +136,7 @@ Pre-releases do **not** update `latest`.
 | `QBIT_BROWSER_HOST` | No | — | Browser-accessible qBittorrent URL (used for the browser auth feature) |
 | `JWT_EXPIRY_MINUTES` | No | `720` | Session token lifetime in minutes (default: 12 hours) |
 | `LOGIN_RATE_LIMIT` | No | `5` | Max login attempts per minute per IP |
-| `TRUSTED_PROXIES` | No | — | Comma-separated list of trusted reverse proxy IPs or CIDRs (e.g. `10.0.0.1,172.18.0.0/16`; a JSON array also works). Ensures rate limiting counts the real client IP, not the proxy |
+| `TRUSTED_PROXIES` | No | — | Comma-separated list of trusted reverse proxy IPs or CIDRs (e.g. `10.0.0.1,172.18.0.0/16`; a JSON array also works). Ensures rate limiting counts the real client IP, not the proxy. Host names are not supported, and a malformed entry stops startup with a config error |
 | `REFRESH_RATE` | No | `5` | Dashboard polling interval in seconds on first run (range: 2–300). Once set, the admin panel value takes precedence — this env var only seeds the default for new deployments |
 | `ENABLE_BROWSER_AUTH` | No | `false` | Opt-in admin feature that returns qBit credentials to the browser so an admin can trigger a login from their own IP (helps resolve qBit IP bans). When `false` (the default) `/api/qbit/browser-auth-creds` returns 404 and the form is hidden. Enabling this means the qBit credentials leave the server |
 
