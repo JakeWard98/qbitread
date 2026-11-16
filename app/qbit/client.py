@@ -181,8 +181,16 @@ class QBitClient:
 
     async def _fetch_and_cache(self, path: str) -> dict | list:
         data = await self._request(path)
-        self._cache[path] = (time.monotonic(), data)
+        entry = (time.monotonic(), data)
+        self._cache[path] = entry
+        # Drop the entry once it is stale, so an idle dashboard does not keep
+        # the last torrent list in memory.
+        asyncio.get_running_loop().call_later(self._CACHE_TTL, self._expire, path, entry)
         return data
+
+    def _expire(self, path: str, entry: tuple[float, dict | list]) -> None:
+        if self._cache.get(path) is entry:
+            del self._cache[path]
 
     def _fetch_done(self, path: str, task: asyncio.Task) -> None:
         if self._inflight.get(path) is task:
@@ -199,4 +207,5 @@ class QBitClient:
     async def close(self):
         for task in list(self._inflight.values()):
             task.cancel()
+        self._cache.clear()
         await self._client.aclose()

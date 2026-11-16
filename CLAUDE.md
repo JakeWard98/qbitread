@@ -86,7 +86,7 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 - **Dark minimal UI**: The interface uses CSS variables for theming. The design is intentionally sparse — no unnecessary visual complexity.
 - **Single-page feel**: Each page (dashboard, login, setup, admin) is a separate HTML template served by FastAPI, with JS handling dynamic behavior. Not a true SPA — no client-side routing.
 - **Pydantic for all validation**: Request/response schemas use Pydantic models. Config uses pydantic-settings.
-- **Circuit breaker on qBit client**: The `QBitClient` (`app/qbit/client.py`) uses exponential backoff (10s to 300s) on failed logins and detects IP bans (login probed every 60s for up to 15 minutes). Respect this pattern when modifying the client. Reads go through `_shared_get()`: concurrent callers share one in-flight upstream fetch, and the result is reused for 1 second (below the 2-second minimum refresh rate). `/api/torrents` also reuses one rendered body per ratio visibility (`_render_torrents()` in `app/qbit/router.py`). Callers must not mutate the shared data.
+- **Circuit breaker on qBit client**: The `QBitClient` (`app/qbit/client.py`) uses exponential backoff (10s to 300s) on failed logins and detects IP bans (login probed every 60s for up to 15 minutes). Respect this pattern when modifying the client. Reads go through `_shared_get()`: concurrent callers share one in-flight upstream fetch, and the result is reused for 1 second (below the 2-second minimum refresh rate). `/api/torrents` also reuses one rendered body per ratio visibility (`_render_torrents()` in `app/qbit/router.py`). Both caches drop their entries after that second, so an idle app holds no torrent list. Callers must not mutate the shared data. `/api/torrents` sends its body through `_SharedBodyResponse`: 64 KiB chunks (so uvicorn's flow control applies), a 60-second send deadline, and at most 4 multi-chunk sends in progress per account (429 beyond that). Do not go back to a single-piece `Response` there: a non-reading client would pin the whole body.
 
 ## Security Requirements
 
@@ -105,7 +105,7 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 - JWT expiry is 12 hours by default (`JWT_EXPIRY_MINUTES=720`).
 - Each user has a random `token_version` that is embedded in their JWT (`ver`) and checked on every request. It is regenerated on password change, revoking existing sessions, and is unique per account, so a re-created username never revives an old token.
 - Every JWT carries a random `jti`. Logout records it in the `revoked_tokens` table (rows are purged once the token would have expired), so a copied cookie stops working at logout while the account's other sessions stay signed in. Tokens without a `jti` are rejected. Both the API dependency and the page routes validate through `user_from_token()` in `app/auth/dependencies.py`; do not add a second validation path.
-- bcrypt runs in a worker thread (`run_in_threadpool`), never on the event loop. Passwords are capped at 72 bytes (bcrypt's limit).
+- bcrypt runs in a worker thread (`run_in_threadpool`), never on the event loop (the startup bootstrap included). Passwords are capped at 72 bytes (bcrypt's limit).
 - Passwords are hashed with **bcrypt** (with salt). Never store or compare plaintext passwords.
 
 ### CSRF Protection
@@ -118,6 +118,7 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 
 - Login endpoint is rate-limited to 5 attempts per minute per IP (sliding window).
 - Honours `X-Forwarded-For` only when the direct peer is in `TRUSTED_PROXIES`, and then uses the right-most hop not in `TRUSTED_PROXIES` (never the client-supplied left-most entry). IPv6 clients are bucketed per /64.
+- `TRUSTED_PROXIES` entries are validated and normalised to networks at startup. A malformed entry (or a host name) stops the app with a config error, instead of silently disabling the entries after it.
 - uvicorn runs with `--no-proxy-headers` (Dockerfile CMD and the dev command). Without it, uvicorn rewrites the client address from `X-Forwarded-For` for any loopback peer, before this check runs.
 
 ### Security Headers
@@ -164,7 +165,7 @@ All configuration is via environment variables. See `.env.example` for the full 
 | `ADMIN_PASSWORD` | Recommended | Bootstrap admin password (setup wizard if omitted) |
 | `SECURE_COOKIES` | No | Set `true` behind HTTPS proxy |
 | `REFRESH_RATE` | No | Initial dashboard polling interval in seconds (default: `5`, range: 2–300). Seeds `app_settings` on first run only; admin panel value takes precedence on subsequent starts |
-| `TRUSTED_PROXIES` | No | Reverse proxy IPs/CIDRs whose `X-Forwarded-For` is trusted for rate limiting. Comma-separated or JSON array; empty = trust none |
+| `TRUSTED_PROXIES` | No | Reverse proxy IPs/CIDRs whose `X-Forwarded-For` is trusted for rate limiting. Comma-separated or JSON array; empty = trust none. IP addresses and CIDRs only: a malformed entry or host name stops startup |
 | `ENABLE_BROWSER_AUTH` | No | Opt-in admin feature (default: `false`). When true, `/api/qbit/browser-auth-creds` returns qBit credentials to the admin browser for IP-ban recovery. Off: endpoint returns 404 and the admin UI hides the form |
 
 ## CI/CD

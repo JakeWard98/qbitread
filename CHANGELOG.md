@@ -8,6 +8,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-11-16 security audit — code-review fixes (1 Low, 3 Info),
+  `pydantic-settings` 2.16.3 and a release-workflow action bump.**
+  Scheduled weekly audit. GitHub's Dependabot alert API is not exposed to
+  the audit environment, so the check was manual. It covered `pip-audit` on
+  `requirements.txt` (0 findings before and after), every PyPI release
+  since the 2026-11-09 audit for all 21 resolved packages, the upstream
+  advisory pages (starlette, uvicorn, fastapi, PyJWT, pydantic-settings)
+  and an independent code review. No CVE above 7.5 affects qbitread, and
+  nothing Critical, High or Moderate was found.
+  - **Low: a slow-reading client could pin one full `/api/torrents` body
+    per second.** This was left over from the 2026-11-09 memory fix. The
+    shared body went to uvicorn in one piece, so it sat whole in the
+    socket's write buffer until the client read it, and uvicorn has no
+    write timeout. A `user` account opening non-reading sockets therefore
+    pinned a fresh body (8 MB with 40k torrents) for every second it kept
+    going. Reproduced: 10 sockets, one every 1.1 s, pinned 40.8 MB.
+    `/api/torrents` now sends through `_SharedBodyResponse`:
+    - the body goes out in 64 KiB chunks, so uvicorn's write flow control
+      makes the send wait;
+    - a send unfinished after 60 s is abandoned and the connection is
+      closed;
+    - one account may have at most 4 multi-chunk sends in progress, and
+      more get 429. Single-chunk bodies are exempt, so a burst of small
+      responses (several tabs served by one shared fetch) is never
+      refused.
+
+    Same test now: peak 0.79 MB. Sockets 5–8 got 429, and another user was
+    served normally throughout. Normal reads are byte-complete
+    (`Content-Length` matches), and ratio is still `null` for `user`.
+    **Residual:** a connection dropped at the deadline can keep up to about
+    128 KiB in its socket buffer until the client goes away. Any uvicorn
+    response has that property, and a buffering reverse proxy (nginx's
+    default) absorbs it entirely.
+  - **Info: a malformed `TRUSTED_PROXIES` entry silently disabled every
+    later entry.** A bad CIDR such as `10.0.0.0/33` made the trust check
+    bail out of the whole list, so every client shared the proxy's
+    login-limit bucket. A spelled-out IPv6 entry (`0:0:0:0:0:0:0:1`) never
+    matched, because single IPs were compared as strings. Entries are now
+    validated and normalised to networks at startup. Matching is network
+    membership, and IPv4-mapped peers are handled as `_bucket()` handles
+    them. **Upgrade note:** a malformed entry or a host name (never
+    supported) now stops startup with `TRUSTED_PROXIES entry '…' is not
+    an IP address or CIDR network`, instead of being silently ignored.
+  - **Info: bcrypt ran on the event loop during the startup bootstrap.**
+    `bootstrap_admin()` now hashes and verifies through
+    `run_in_threadpool`, like every request path. That only mattered for
+    CLAUDE.md's "never on the event loop" rule, since uvicorn is not yet
+    accepting connections at that point.
+  - **Info: an idle app kept up to three raw torrent lists and two
+    rendered bodies in memory.** Entries in the client cache and the
+    render cache are now dropped 1 s after they are created. Verified:
+    both caches are empty once polling stops, whereas master kept 2 bodies
+    and the last list.
+  - **`pydantic-settings` 2.16.1 → 2.16.3.** 2.16.3 (2026-11-13) stops
+    the plain `SecretsSettingsSource` following symlinks out of
+    `secrets_dir`. That is the same flaw as GHSA-4xgf-cpjx-pc3j (fixed in
+    2.14.2 for the nested source only). No advisory ID is assigned.
+    **Not reachable:** qbitread sets no `secrets_dir`. Bumped defensively,
+    with requirements unchanged and the same 21-package resolve.
+  - **`docker/login-action` v4.7.0 → v4.8.0** (SHA-pinned). The release
+    changes the default Docker Hub OIDC token lifetime and bumps
+    dependencies, with no advisory. It keeps the release workflow on the
+    latest tags; `actions/checkout` stays on v6.1.0, as before.
+  - **Reviewed, no change:**
+    - `fastapi` stays at 0.141.1. 0.162.3 to 0.163.1 (2026-11-10 to
+      2026-11-15) carry no security fix: cancellation-cleanup bug fixes,
+      Python 3.10 dropped, and a new `Depends(max_concurrency=…)`.
+    - `annotated-doc` 0.0.6 is already resolved, and `click` 8.5.1 is
+      unchanged.
+    - starlette, uvicorn, httpx, httpcore, h11, anyio, idna, certifi,
+      pydantic, PyJWT, bcrypt and aiosqlite have had no new release or
+      advisory.
+    - The `python:3.12-slim` base image tag floats, so each release build
+      picks up Debian and CPython patches.
+  - **Reviewed, clean:** the shared-fetch cache. Checks covered role
+    isolation (30 mixed-role parallel requests made 1 upstream fetch with
+    no ratio leak) and errors not being cached. They also covered
+    cancellation (the first waiter cancelled, all waiters cancelled, an
+    orphaned fetch joined, `close()`) and client disconnect. Also clean:
+    the rest of the 2026-11-09 changes, auth and revocation, CSRF, the
+    body limit, headers and CSP, admin routes, browser-auth gating, SQL,
+    `innerHTML` sinks, the rate limiter, Docker, compose and the workflow.
+  Validated with the reviewer's harness against a stub qBittorrent,
+  re-run against the fixed tree: the cache and role checks, the
+  cancellation unit tests and the disconnect test. Also checked:
+  - the 40k-torrent slow-reader test, before and after;
+  - an 8-case `TRUSTED_PROXIES` matrix, including that the bad-entry error
+    does not echo `ADMIN_PASSWORD`;
+  - the login rate limit with and without trusted loopback proxies;
+  - the bootstrap placeholder warning through the threadpool;
+  - `pip-audit -r requirements.txt`: no known vulnerabilities.
+
 - **2026-11-09 audit — application code fixes from the independent code
   review (3 Low, 2 Info).**
   The review found nothing Critical, High or Moderate. It reproduced each

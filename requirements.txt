@@ -95,8 +95,11 @@ aiosqlite==0.22.1
 # 2.14.2+ closes GHSA-4xgf-cpjx-pc3j — NestedSecretsSettingsSource symlink-follow
 # bypass of secrets_dir_max_size (Moderate, CVSS 5.3). Not reachable: app/config.py
 # uses BaseSettings + env_file only, never the nested-secrets source.
+# 2.16.3 (2026-11-13) also stops the plain SecretsSettingsSource following
+# symlinks out of secrets_dir (the same flaw; no advisory ID assigned). Not
+# reachable: qbitread sets no secrets_dir. Bumped defensively, 2026-11-16 audit.
 # 2.16.0+ also requires python-dotenv>=1.2.2, closing CVE-2026-28684 /
 # GHSA-mf9w-mj56-hr94 (set_key()/unset_key() symlink-follow file overwrite;
 # Moderate, CVSS 6.6) for every resolve. Not reachable: qbitread only reads
 # .env through pydantic-settings and never writes it.
-pydantic-settings==2.16.1
+pydantic-settings==2.16.3

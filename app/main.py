@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response as StarletteResponse
 
 from app.auth.dependencies import user_from_token
@@ -82,17 +83,19 @@ async def bootstrap_admin():
                     "password, or remove ADMIN_PASSWORD to use the setup wizard."
                 )
             now = datetime.now(timezone.utc).isoformat()
+            # bcrypt runs in a worker thread, as on every request path.
+            hashed = await run_in_threadpool(hash_password, settings.ADMIN_PASSWORD)
             await db.execute(
                 "INSERT INTO users (username, password, role, created_at, password_meets_policy, token_version) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
-                (settings.ADMIN_USERNAME, hash_password(settings.ADMIN_PASSWORD), "admin", now,
+                (settings.ADMIN_USERNAME, hashed, "admin", now,
              password_meets_policy(settings.ADMIN_PASSWORD), new_token_version()),
             )
             await db.commit()
             logger.info("Admin user '%s' created", settings.ADMIN_USERNAME)
         else:
             logger.info("Admin user '%s' already exists", settings.ADMIN_USERNAME)
-            if is_placeholder and verify_password(settings.ADMIN_PASSWORD, admin["password"]):
+            if is_placeholder and await run_in_threadpool(verify_password, settings.ADMIN_PASSWORD, admin["password"]):
                 logger.warning(
                     "Admin user '%s' still uses the documented placeholder password. "
                     "Change it in the admin panel now.", settings.ADMIN_USERNAME

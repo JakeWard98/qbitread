@@ -124,21 +124,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return str(ipaddress.ip_network(f"{addr}/64", strict=False))
         return str(addr)
 
-    @staticmethod
-    def _is_trusted_proxy(ip: str) -> bool:
-        if not settings.TRUSTED_PROXIES:
+    # Validated and normalised to networks by Settings at startup.
+    _TRUSTED_NETWORKS = tuple(ipaddress.ip_network(p) for p in settings.TRUSTED_PROXIES)
+
+    @classmethod
+    def _is_trusted_proxy(cls, ip: str) -> bool:
+        if not cls._TRUSTED_NETWORKS:
             return False  # Do not trust X-Forwarded-For unless proxies are explicitly configured
         try:
             addr = ipaddress.ip_address(ip)
-            for proxy in settings.TRUSTED_PROXIES:
-                if "/" in proxy:
-                    if addr in ipaddress.ip_network(proxy, strict=False):
-                        return True
-                elif ip == proxy:
-                    return True
         except ValueError:
-            pass
-        return False
+            return False
+        if addr.version == 6 and addr.ipv4_mapped:
+            addr = addr.ipv4_mapped  # as _bucket() does
+        return any(addr in net for net in cls._TRUSTED_NETWORKS)
 
     _MAX_TRACKED = 10_000
 

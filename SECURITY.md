@@ -63,8 +63,17 @@ single qBittorrent instance behind a trusted reverse proxy.
   before they are buffered.
 - **Request amplification against qBittorrent.** Concurrent dashboard
   requests share one upstream fetch and one rendered response, cached for
-  1 second. A logged-in user opening many parallel requests cannot multiply
-  load on qBit or memory use in qBitRead.
+  1 second and then dropped. A logged-in user opening many parallel
+  requests cannot multiply load on qBit.
+- **Slow-reading clients pinning memory.** `/api/torrents` streams its
+  body in 64 KiB chunks under uvicorn's write flow control, abandons a send
+  still unfinished after 60 seconds, and lets one account have at most 4
+  multi-chunk sends in progress (more get 429). A client that stops reading
+  pins at most a few of the account's rendered bodies, for at most a
+  minute. A connection dropped at that deadline can still hold up to about
+  128 KiB in its socket buffer until the client goes away. That is true of
+  any uvicorn response, so a reverse proxy that buffers responses (nginx's
+  default `proxy_buffering on`) is the full mitigation.
 - **Resurrected bootstrap admin.** `ADMIN_PASSWORD` only creates the admin
   on an empty install. An admin account another admin deleted stays
   deleted across restarts.
