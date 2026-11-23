@@ -53,7 +53,9 @@ single qBittorrent instance behind a trusted reverse proxy.
 - **Reverse-proxy header spoofing.** `X-Forwarded-For` is only trusted when
   the request comes from an IP listed in `TRUSTED_PROXIES`, and then only
   the right-most hop your proxies did not add is used, so a client-supplied
-  header cannot pick its own rate-limit bucket.
+  header cannot pick its own rate-limit bucket. All `X-Forwarded-For` lines
+  are read, so this also holds behind a proxy that adds its own header line
+  (HAProxy's `option forwardfor`) instead of extending the client's.
 - **Stolen or stale sessions.** Logging out revokes that session's token on
   the server, so a copied cookie stops working immediately rather than at
   expiry. Changing a user's password revokes all of
@@ -66,14 +68,15 @@ single qBittorrent instance behind a trusted reverse proxy.
   1 second and then dropped. A logged-in user opening many parallel
   requests cannot multiply load on qBit.
 - **Slow-reading clients pinning memory.** `/api/torrents` streams its
-  body in 64 KiB chunks under uvicorn's write flow control, abandons a send
-  still unfinished after 60 seconds, and lets one account have at most 4
-  multi-chunk sends in progress (more get 429). A client that stops reading
-  pins at most a few of the account's rendered bodies, for at most a
-  minute. A connection dropped at that deadline can still hold up to about
-  128 KiB in its socket buffer until the client goes away. That is true of
-  any uvicorn response, so a reverse proxy that buffers responses (nginx's
-  default `proxy_buffering on`) is the full mitigation.
+  body in 64 KiB chunks under uvicorn's write flow control, and lets one
+  account have at most 4 multi-chunk sends in progress (more get 429). A
+  send still unfinished after 60 seconds is abandoned and its body
+  released, but it keeps its slot until the client disconnects. A client
+  that stops reading therefore pins at most 4 of the account's rendered
+  bodies, for at most a minute, and at most 4 stuck connections, each
+  holding a few hundred KiB of already-queued chunks until the client goes
+  away. uvicorn has no write timeout, so a reverse proxy that buffers
+  responses (nginx's default `proxy_buffering on`) is the full mitigation.
 - **Resurrected bootstrap admin.** `ADMIN_PASSWORD` only creates the admin
   on an empty install. An admin account another admin deleted stays
   deleted across restarts.

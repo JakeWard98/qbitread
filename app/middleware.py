@@ -19,6 +19,26 @@ logger = logging.getLogger(__name__)
 _CSP_ORIGIN_RE = re.compile(r"^https?://[a-zA-Z0-9\-._~:]+$")
 
 
+def _route_path(scope: Scope) -> str:
+    """The path routing matches on: scope["path"] minus any server root_path.
+
+    uvicorn prepends its root_path (``--root-path`` / ``UVICORN_ROOT_PATH``) to
+    scope["path"] while routing strips it again, so matching the raw path would
+    let every request skip CSRF and the login limit once a root_path is set.
+    Mirrors starlette's get_route_path(). Still the raw ASGI path, never
+    request.url.path, which a crafted Host header can poison
+    (GHSA-86qp-5c8j-p5mr / CVE-2026-48710).
+    """
+    path: str = scope["path"]
+    root_path: str = scope.get("root_path", "")
+    if root_path and path.startswith(root_path):
+        if path == root_path:
+            return ""
+        if path[len(root_path)] == "/":
+            return path[len(root_path):]
+    return path
+
+
 def _sanitize_csp_origin(value: str) -> str | None:
     """Validate that a value is safe for inclusion in a CSP directive.
 
@@ -93,7 +113,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._lock = asyncio.Lock()
 
     def _get_client_ip(self, request: Request) -> str:
-        forwarded = request.headers.get("x-forwarded-for")
+        # Join every X-Forwarded-For line, in order (RFC 9110 5.3): a proxy
+        # that adds its own line (HAProxy's `option forwardfor`) puts it after
+        # the client's, and headers.get() would return only the client's line.
+        forwarded = ",".join(request.headers.getlist("x-forwarded-for"))
         client_ip = request.client.host if request.client else "unknown"
         if forwarded and self._is_trusted_proxy(client_ip):
             # Proxies append, so only the right-most entries are trustworthy:
@@ -153,10 +176,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 del self._hits[key]
 
     async def dispatch(self, request: Request, call_next):
-        # Match on the raw ASGI scope path, not request.url.path: a crafted Host
-        # header can poison request.url.path (GHSA-86qp-5c8j-p5mr / CVE-2026-48710)
-        # and let an attacker slip past the login rate limiter.
-        if request.scope["path"] == self.path and request.method == "POST":
+        # Match on the ASGI scope path (see _route_path), not request.url.path:
+        # a crafted Host header can poison request.url.path and let an attacker
+        # slip past the login rate limiter.
+        if _route_path(request.scope) == self.path and request.method == "POST":
             ip = self._get_client_ip(request)
             now = time.time()
 
@@ -226,10 +249,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if request.method in self.SAFE_METHODS:
             return await call_next(request)
 
-        # Match on the raw ASGI scope path, not request.url.path: a crafted Host
-        # header can poison request.url.path (GHSA-86qp-5c8j-p5mr / CVE-2026-48710)
-        # and slip a mutating /api/ request past CSRF validation.
-        path = request.scope["path"]
+        # Match on the ASGI scope path (see _route_path), not request.url.path:
+        # a crafted Host header can poison request.url.path and slip a mutating
+        # /api/ request past CSRF validation.
+        path = _route_path(request.scope)
         if path in self.EXEMPT_PATHS:
             return await call_next(request)
 
