@@ -86,7 +86,7 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 - **Dark minimal UI**: The interface uses CSS variables for theming. The design is intentionally sparse — no unnecessary visual complexity.
 - **Single-page feel**: Each page (dashboard, login, setup, admin) is a separate HTML template served by FastAPI, with JS handling dynamic behavior. Not a true SPA — no client-side routing.
 - **Pydantic for all validation**: Request/response schemas use Pydantic models. Config uses pydantic-settings.
-- **Circuit breaker on qBit client**: The `QBitClient` (`app/qbit/client.py`) uses exponential backoff (10s to 300s) on failed logins and detects IP bans (login probed every 60s for up to 15 minutes). Respect this pattern when modifying the client. Reads go through `_shared_get()`: concurrent callers share one in-flight upstream fetch, and the result is reused for 1 second (below the 2-second minimum refresh rate). `/api/torrents` also reuses one rendered body per ratio visibility (`_render_torrents()` in `app/qbit/router.py`). Both caches drop their entries after that second, so an idle app holds no torrent list. Callers must not mutate the shared data. `/api/torrents` sends its body through `_SharedBodyResponse`: 64 KiB chunks (so uvicorn's flow control applies), a 60-second send deadline, and at most 4 multi-chunk sends in progress per account (429 beyond that). Do not go back to a single-piece `Response` there: a non-reading client would pin the whole body.
+- **Circuit breaker on qBit client**: The `QBitClient` (`app/qbit/client.py`) uses exponential backoff (10s to 300s) on failed logins and detects IP bans (login probed every 60s for up to 15 minutes). Respect this pattern when modifying the client. Reads go through `_shared_get()`: concurrent callers share one in-flight upstream fetch, and the result is reused for 1 second (below the 2-second minimum refresh rate). `/api/torrents` also reuses one rendered body per ratio visibility (`_render_torrents()` in `app/qbit/router.py`). Both caches drop their entries after that second, so an idle app holds no torrent list. Callers must not mutate the shared data. `/api/torrents` sends its body through `_SharedBodyResponse`: 64 KiB chunks (so uvicorn's flow control applies), a 60-second send deadline, and at most 4 multi-chunk sends in progress per account (429 beyond that). At the deadline the body is released at once, but the send keeps its slot until the client disconnects: the `BaseHTTPMiddleware` layers above stay blocked on uvicorn's send until then, so freeing the slot early lets one account pile up stuck connections. Do not go back to a single-piece `Response` there: a non-reading client would pin the whole body.
 
 ## Security Requirements
 
@@ -112,12 +112,13 @@ Browser  -->  FastAPI (auth + proxy)  -->  qBittorrent API
 
 - Double-submit cookie pattern: CSRF token in cookie + `X-CSRF-Token` header on mutating requests.
 - Exempt paths: `/api/auth/login`, `/api/auth/logout`, `/api/auth/setup` only.
+- CSRF and the login rate limiter match on `_route_path(scope)` in `app/middleware.py`: the raw ASGI path minus any server `root_path`, which is the path routing matches on. Never match on `request.url.path` (a crafted `Host` header can poison it) or on the bare `scope["path"]` (uvicorn prepends `--root-path` / `UVICORN_ROOT_PATH` to it).
 - Do not add CSRF exemptions without careful consideration.
 
 ### Rate Limiting
 
 - Login endpoint is rate-limited to 5 attempts per minute per IP (sliding window).
-- Honours `X-Forwarded-For` only when the direct peer is in `TRUSTED_PROXIES`, and then uses the right-most hop not in `TRUSTED_PROXIES` (never the client-supplied left-most entry). IPv6 clients are bucketed per /64.
+- Honours `X-Forwarded-For` only when the direct peer is in `TRUSTED_PROXIES`, and then uses the right-most hop not in `TRUSTED_PROXIES` (never the client-supplied left-most entry). Every `X-Forwarded-For` header line is joined, in order, before that walk: a proxy that adds its own line (HAProxy's `option forwardfor`) puts it after the client's. IPv6 clients are bucketed per /64.
 - `TRUSTED_PROXIES` entries are validated and normalised to networks at startup. A malformed entry (or a host name) stops the app with a config error, instead of silently disabling the entries after it.
 - uvicorn runs with `--no-proxy-headers` (Dockerfile CMD and the dev command). Without it, uvicorn rewrites the client address from `X-Forwarded-For` for any loopback peer, before this check runs.
 

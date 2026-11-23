@@ -50,6 +50,11 @@ htmlcov/
 # IDE / editors
 .vscode/
 .idea/
+*.swp
+*~
+
+# Claude Code per-user local settings (may hold tokens or local paths)
+.claude/settings.local.json
 
 # Docker local overrides
 docker-compose.override.yml

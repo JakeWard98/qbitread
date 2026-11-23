@@ -8,6 +8,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **2026-11-23 security audit — 2 Low and 1 Info code fixes, no
+  dependency changes.**
+  Scheduled weekly audit. GitHub's Dependabot alert API is not exposed to
+  the audit environment, so the check was manual:
+  - `pip-audit` on `requirements.txt` and on the resolved 21-package tree:
+    0 findings.
+  - The OSV PyPI database (snapshot of 2026-11-22), matched against every
+    resolved version: no advisory affects one. No advisory for any of the
+    21 packages has been published or changed since the 2026-11-16 audit.
+  - The OSV GitHub Actions database and upstream tags for the six workflow
+    actions.
+  - The `python:3.12-slim` base image, which is CPython 3.12.16 (built
+    2026-11-08).
+  - An independent code review. Every finding was reproduced against a
+    running instance with a stub qBittorrent serving 40k torrents (an
+    11 MB `/api/torrents` body), before and after the fix.
+
+  No CVE above 7.5, and nothing Critical, High or Moderate.
+  - **Low: the slow-reader fix from the 2026-11-16 audit did not bound
+    memory.**
+    - What happened at the 60 s send deadline: the account's slot was
+      freed, but the body was not. The three `BaseHTTPMiddleware` layers
+      above the endpoint stay blocked on uvicorn's send while the client
+      holds the socket open without reading, and uvicorn has no write
+      timeout.
+    - Why the body stayed pinned: the `ConnectionAbortedError` raised at
+      the deadline was held by starlette, and its traceback still
+      referenced the body.
+    - Impact: one `user` account could pin 4 more full bodies and 4 more
+      sockets every minute, without limit. That contradicted SECURITY.md's
+      "at most a few bodies, for at most a minute".
+    - Reproduced with the deadline shortened to 2 s: over 5 rounds, pinned
+      bodies grew from 21.7 MB to 152.1 MB, RSS from 117 MB to 280 MB, and
+      open sockets from 5 to 25. The account still got fresh 200s after
+      each deadline.
+    - The fix: at the deadline the body is released at once, and the send
+      keeps its slot until the client disconnects, then returns. Same test
+      now: 0 MB pinned after every deadline, the account held at 4 stuck
+      sends (429 beyond that), and other users served normally. The
+      account recovers as soon as its sockets close.
+    - An abandoned send now logs one warning instead of an "Exception in
+      ASGI application" traceback.
+  - **Low: login rate-limit bypass behind a proxy that adds its own
+    `X-Forwarded-For` line.**
+    - Cause: the limiter read only the first `X-Forwarded-For` header line.
+      HAProxy's `option forwardfor` (and any proxy configured to add a
+      header rather than extend it) appends a separate line after the
+      client's. The right-most-hop walk therefore ran on the line the
+      client wrote, so the client picked its own bucket.
+    - Reproduced with a trusted appending proxy on loopback: 8 wrong
+      passwords with a rotating client line, no 429.
+    - All lines are now joined in order (RFC 9110 §5.3) before the walk.
+      Same test: 429 from the 6th attempt.
+    - nginx, Traefik and Caddy merge into one line and were not affected.
+  - **Info: a server `root_path` switched off CSRF and the login limit.**
+    - Cause: uvicorn prepends `--root-path` / `UVICORN_ROOT_PATH` to
+      `scope["path"]`, while routing strips it again. Both middlewares
+      matched the raw path, so `/qbit/api/...` matched neither `/api/` nor
+      the login path.
+    - Reproduced with `root_path=/qbit`: 7 bad logins without a 429, and an
+      admin `POST /api/auth/users` with no CSRF token returned 201.
+    - Both now match on `_route_path()`, which mirrors starlette's
+      `get_route_path()` and is still never `request.url.path`. Same test:
+      429 and 403.
+    - No shipped config sets a root path, and SameSite=Strict cookies
+      still stopped cross-site CSRF.
+  - **Reviewed, no change:**
+    - `fastapi` stays at 0.141.1. 0.163.2 is a refactor; 0.164.0 and
+      0.165.0 (2026-11-18) add opt-in request-body and form-parsing limits.
+      qbitread already caps bodies at 64 KiB and parses no forms. 0.142.0+
+      still has the hard `opentelemetry-api` dependency.
+    - `pydantic` 2.14.4 / `pydantic-core` 2.50.5 (2026-11-19) are resolved
+      under the existing `>=2.14.2` floor. They bump jiter for a memory
+      regression, with no advisory. qbitread never uses pydantic's JSON
+      parser: FastAPI and httpx both use stdlib `json`.
+    - `certifi` 2026.11.20 is resolved under the existing floor. It drops 5
+      roots (Buypass Class 2/3, Certigna, QuoVadis 1 G3/3 G3) and adds
+      none, with no advisory.
+    - `annotated-doc` 0.0.7 has no advisory.
+    - starlette, uvicorn, httpx, httpcore, h11, anyio, idna, PyJWT, bcrypt,
+      aiosqlite and pydantic-settings have had no new release.
+    - `PyJWT` 2.15.1 stays deliberately untaken (see `requirements.txt`).
+    - Release-workflow actions: there are no new tags and no advisories.
+      `actions/checkout` stays on v6.1.0, which carries the v7
+      `pull_request_target` backport. v7.0.1 adds no advisory fix: it
+      regex-escapes a value in credential-config cleanup, trims only ASCII
+      whitespace from branch names, and skips the fork-PR check for
+      default inputs.
+  - **Reviewed, clean:**
+    - The shared-fetch and render caches: errors are not cached, there is
+      no cross-role ratio leak, and cancellation and `close()` behave.
+    - The per-account send counter: it does not leak on RST, FIN or
+      deadline. `Content-Length` matches, and ratio is `null` for `user`
+      in every path.
+    - `TRUSTED_PROXIES` validation and `bootstrap_admin()`.
+    - Auth and revocation, CSRF, the body limit (both Content-Length and
+      chunked), headers and CSP, admin role checks, browser-auth gating,
+      SQL, `innerHTML` sinks, the Dockerfile, the compose files and the
+      workflow.
+  - **Docs and housekeeping:**
+    - The README architecture diagram now lists `BodySizeLimit`.
+    - SECURITY.md and CLAUDE.md describe the new deadline and XFF
+      behaviour and the `_route_path()` rule.
+    - The `fastapi` hold comment in `requirements.txt` now covers 0.165.0.
+    - `.gitignore` / `.dockerignore` now ignore editor swap files and
+      Claude Code local settings.
+  - **Release note:** v1.7.6 (2026-10-31) predates this fix and the
+    2026-11-02, 2026-11-09 and 2026-11-16 audit fixes. Publish a release
+    to ship them in the image.
+
 - **2026-11-16 security audit — code-review fixes (1 Low, 3 Info),
   `pydantic-settings` 2.16.3 and a release-workflow action bump.**
   Scheduled weekly audit. GitHub's Dependabot alert API is not exposed to

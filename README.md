@@ -54,7 +54,7 @@ A lightweight, read-only Docker web app for monitoring your qBittorrent instance
 ```mermaid
 flowchart TB
     UI["Browser (same-origin)<br/>Dashboard · Login · Admin · Setup"]
-    MW["FastAPI middleware<br/>SecurityHeaders → RateLimit → CSRF"]
+    MW["FastAPI middleware<br/>SecurityHeaders → RateLimit → CSRF → BodySizeLimit"]
     AuthR["auth/router.py — /api/auth/* (JWT + bcrypt)"]
     QbitR["qbit/router.py — /api/torrents · /api/transfer · /api/qbit/*"]
     Client["qbit/client.py — httpx + circuit breaker"]

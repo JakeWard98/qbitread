@@ -58,11 +58,14 @@ def _render_torrents(raw: list[dict], show_ratio: bool) -> bytes:
 # the whole body sat in the socket's write buffer until the client read it
 # (uvicorn has no write timeout), so a logged-in user could pin one full body
 # per second for as long as they kept opening sockets. Instead the body goes
-# out in chunks, so uvicorn's write flow control makes the send wait; a send
-# still unfinished after _SEND_DEADLINE seconds is abandoned and the
-# connection closed; and one account may have at most _MAX_SENDS_PER_USER
-# multi-chunk sends in progress (more get 429). Memory held for slow clients
-# is then bounded per account.
+# out in chunks, so uvicorn's write flow control makes the send wait, and one
+# account may have at most _MAX_SENDS_PER_USER multi-chunk sends in progress
+# (more get 429). A send still unfinished after _SEND_DEADLINE seconds is
+# abandoned: its body is released at once, but its slot stays taken until the
+# client disconnects. The BaseHTTPMiddleware layers above stay blocked on
+# uvicorn's send until then, so the connection cannot be closed from here, and
+# freeing the slot early would let one account pile up stuck connections.
+# Memory and connections held for slow clients are then bounded per account.
 _CHUNK = 64 * 1024
 _SEND_DEADLINE = 60.0
 _MAX_SENDS_PER_USER = 4
@@ -90,6 +93,7 @@ class _SharedBodyResponse(Response):
                 await busy(scope, receive, send)
                 return
             _active_sends[uid] += 1
+        view = None
         try:
             with anyio.move_on_after(_SEND_DEADLINE) as deadline:
                 await send({"type": "http.response.start", "status": self.status_code, "headers": self.raw_headers})
@@ -98,11 +102,16 @@ class _SharedBodyResponse(Response):
                     await send({"type": "http.response.body", "body": bytes(view[i:i + _CHUNK]), "more_body": True})
                 await send({"type": "http.response.body", "body": b"", "more_body": False})
             if deadline.cancelled_caught:
-                # Raising makes uvicorn close the connection; returning
-                # would leave a response with a short body.
-                raise ConnectionAbortedError(
-                    f"/api/torrents client did not read its response within {_SEND_DEADLINE:.0f}s"
+                logger.warning(
+                    "/api/torrents client (account id %s) did not read its response within %.0fs; "
+                    "send abandoned", uid, _SEND_DEADLINE,
                 )
+                # Drop every reference to the body before waiting: this frame
+                # stays alive until the client goes away.
+                self.body = b""
+                view = None
+                while (await receive())["type"] != "http.disconnect":
+                    pass
         finally:
             if capped:
                 _active_sends[uid] -= 1
